@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FISAM Tour | Controle de Licitações</title>
+  <meta name="description" content="Dashboard de licitações e fechamento mensal (FISAM Tour)." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <header class="header">
+    <div class="container header__inner">
+      <div class="brand">
+        <!-- Troque por sua logo -->
+        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
+        <div class="brand__text">
+          <div class="brand__name">FISAM TOUR</div>
+          <div class="brand__tag">Painel de Licitações • Fechamento Mensal</div>
+        </div>
+      </div>
+
+      <div class="header__actions">
+        <button class="btn btn--ghost" id="btnExport">Exportar CSV</button>
+        <button class="btn btn--primary" id="btnNew">Novo lançamento</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Top controls -->
+    <section class="panel">
+      <div class="panel__row">
+        <div class="field">
+          <label class="field__label">Competência</label>
+          <input class="field__input" type="month" id="competencia" />
+        </div>
+
+        <div class="field">
+          <label class="field__label">Buscar</label>
+          <input class="field__input" type="search" id="q" placeholder="Ex.: pregão, órgão, fornecedor, destino..." />
+        </div>
+
+        <div class="field">
+          <label class="field__label">Status</label>
+          <select class="field__input" id="status">
+            <option value="all">Todos</option>
+            <option value="em_andamento">Em andamento</option>
+            <option value="ganho">Ganho</option>
+            <option value="perdido">Perdido</option>
+          </select>
+        </div>
+
+        <div class="panel__right">
+          <button class="btn btn--outline" id="btnRefresh">Atualizar</button>
+          <button class="btn btn--primary" id="btnCloseMonth">Fechar mês</button>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="summary">
+        <div class="summary__card">
+          <div class="summary__label">Receitas</div>
+          <div class="summary__value" id="sumReceitas">R$ 0,00</div>
+          <div class="summary__hint">Total da competência</div>
+        </div>
+
+        <div class="summary__card">
+          <div class="summary__label">Despesas</div>
+          <div class="summary__value" id="sumDespesas">R$ 0,00</div>
+          <div class="summary__hint">Total da competência</div>
+        </div>
+
+        <div class="summary__card summary__card--strong">
+          <div class="summary__label">Saldo</div>
+          <div class="summary__value" id="sumSaldo">R$ 0,00</div>
+          <div class="summary__hint">Receitas − Despesas</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Table -->
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="title">Lançamentos</h2>
+        <div class="muted" id="countInfo">0 itens</div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table" aria-label="Tabela de lançamentos">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Licitação</th>
+              <th>Tipo</th>
+              <th>Categoria</th>
+              <th>Fornecedor</th>
+              <th>Descrição</th>
+              <th class="right">Valor</th>
+              <th class="right">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <!-- preenchido via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>© <span id="year"></span> FISAM Tour • Controle interno</div>
+      <div class="footer__links">
+        <a href="#" id="linkInstagram" target="_blank" rel="noopener">Instagram</a>
+        <a href="#" id="linkWhatsApp" target="_blank" rel="noopener">WhatsApp</a>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Modal: Novo/Editar -->
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal__head">
+        <h3 class="modal__title" id="modalTitle">Novo lançamento</h3>
+        <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
+      </div>
+
+      <form id="form">
+        <div class="grid2">
+          <div class="field">
+            <label class="field__label">Data</label>
+            <input class="field__input" type="date" id="f_data" required>
+          </div>
+
+          <div class="field">
+            <label class="field__label">Tipo</label>
+            <select class="field__input" id="f_tipo" required>
+              <option value="receita">Receita</option>
+              <option value="despesa">Despesa</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label">Licitação (texto livre)</label>
+            <input class="field__input" id="f_licitacao" placeholder="Ex.: PE 52/2025 • Órgão X" required>
+          </div>
+
+          <div class="field">
+            <label class="field__label">Status</label>
+            <select class="field__input" id="f_status" required>
+              <option value="em_andamento">Em andamento</option>
+              <option value="ganho">Ganho</option>
+              <option value="perdido">Perdido</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label">Categoria</label>
+            <input class="field__input" id="f_categoria" placeholder="Ex.: passagens, hotel, taxa, comissão" required>
+          </div>
+
+          <div class="field">
+            <label class="field__label">Fornecedor</label>
+            <input class="field__input" id="f_fornecedor" placeholder="Ex.: Cia aérea / Hotel / Operadora">
+          </div>
+
+          <div class="field grid2__full">
+            <label class="field__label">Descrição</label>
+            <input class="field__input" id="f_descricao" placeholder="Ex.: emissão + bagagem + taxas">
+          </div>
+
+          <div class="field">
+            <label class="field__label">Valor (R$)</label>
+            <input class="field__input" id="f_valor" inputmode="decimal" placeholder="Ex.: 1250,00" required>
+            <div class="hint">Use vírgula ou ponto. Ex.: 1250,00</div>
+          </div>
+
+          <div class="field">
+            <label class="field__label">Comprovante (URL)</label>
+            <input class="field__input" id="f_comprovante" placeholder="https://...">
+          </div>
+        </div>
+
+        <div class="modal__actions">
+          <button type="button" class="btn btn--outline" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn--primary" id="btnSave">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirm -->
+  <div class="modal" id="confirm" aria-hidden="true">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card modal__card--small" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="modal__head">
+        <h3 class="modal__title" id="confirmTitle">Confirmar</h3>
+        <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
+      </div>
+      <div class="confirm__text" id="confirmText"></div>
+      <div class="modal__actions">
+        <button class="btn btn--outline" data-close="1">Cancelar</button>
+        <button class="btn btn--primary" id="confirmOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
