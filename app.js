@@ -6,9 +6,8 @@
 const CONFIG = {
   INSTAGRAM_URL: "https://instagram.com/fisamtour",
   WHATSAPP_URL: "https://wa.me/5511910218890",
-  // Quando você tiver o Apps Script publicado, coloque aqui:
-  // API_URL: "https://script.google.com/macros/s/SEU_ID/exec"
-  API_URL: null,
+  API_URL: "https://script.google.com/macros/s/AKfycbwcakddghwC4hQrfO7spmNHk-O4CEwZMYf227v_rNqwVFPXBnAbpCTMhy1EdPC2X_Sd/exec",
+  API_TOKEN: "fisam-licitacoes-2025-secreto",
   USE_MOCK: false, // deixe true enquanto não tiver API
 };
 
@@ -264,10 +263,12 @@ async function fetchRows(competencia) {
     return mockData(competencia);
   }
 
-  const url = `${CONFIG.API_URL}?op=list&competencia=${encodeURIComponent(competencia)}`;
+  const url = `${CONFIG.API_URL}?op=list&competencia=${encodeURIComponent(competencia)}`+`&token=${encodeURIComponent(CONFIG.API_TOKEN)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Falha ao carregar dados da API");
   const json = await res.json();
+
+  if (!json.ok) throw new Error(json.error || "Erro na API");
   return json.rows || [];
 }
 
@@ -284,11 +285,11 @@ async function saveRow(row) {
   }
 
   const op = state.editingId ? "update" : "add";
-  const payload = { op, row: { ...row, id: state.editingId || undefined } };
+  const payload = { op, token: CONFIG.API_TOKEN, row: { ...row, id: state.editingId || undefined } };
 
   const res = await fetch(CONFIG.API_URL, {
     method: "POST",
-    headers: { "Content-Type":"application/json" },
+    headers: { "Content-Type":"text/plain;charset=utf-8" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("Falha ao salvar na API");
@@ -304,8 +305,8 @@ async function deleteRow(id) {
 
   const res = await fetch(CONFIG.API_URL, {
     method: "POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify({ op: "delete", id }),
+    headers: { "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify({ op: "delete", token: CONFIG.API_TOKEN, id }),
   });
   if (!res.ok) throw new Error("Falha ao excluir na API");
   await refresh();
@@ -319,14 +320,56 @@ async function closeMonth(competencia) {
 
   const res = await fetch(CONFIG.API_URL, {
     method: "POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify({ op: "closeMonth", competencia }),
+    headers: { "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify({ op: "closeMonth", token: CONFIG.API_TOKEN, competencia }),
   });
   if (!res.ok) throw new Error("Falha ao fechar mês");
   const json = await res.json();
   // Ex.: json.invoicePdfUrl
   alert("Mês fechado com sucesso!");
   await refresh();
+}
+
+async function fetchOptions() {
+  if (CONFIG.USE_MOCK || !CONFIG.API_URL) {
+    return {
+      licitacoes: [{ id:"L1", nome:"PE 52/2025 • Órgão X" }],
+      fornecedores: [{ id:"F1", nome:"Operadora" }]
+    };
+  }
+
+  const url = `${CONFIG.API_URL}?op=options&token=${encodeURIComponent(CONFIG.API_TOKEN)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Falha ao carregar options");
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Erro options");
+  return json;
+}
+
+function fillSelect(selectEl, items, placeholder = "Selecione…", allowEmpty = false) {
+  const current = selectEl.value;
+  selectEl.innerHTML = "";
+
+  const opt0 = document.createElement("option");
+  opt0.textContent = placeholder;
+  opt0.value = "";
+  opt0.disabled = !allowEmpty;
+  opt0.selected = true;
+  selectEl.appendChild(opt0);
+
+  if (allowEmpty) {
+    opt0.disabled = false;
+  }
+
+  for (const it of items) {
+    const o = document.createElement("option");
+    o.value = it.nome;
+    o.textContent = it.nome;
+    selectEl.appendChild(o);
+  }
+
+  // tenta preservar seleção se houver
+  if (current) selectEl.value = current;
 }
 
 /* ------------------- UI actions ------------------- */
@@ -411,4 +454,8 @@ function wire() {
 (async function init(){
   wire();
   await refresh();
+  const opts = await fetchOptions();
+fillSelect(els.f_licitacao, opts.licitacoes, "Selecione a licitação…", false);
+fillSelect(els.f_fornecedor, opts.fornecedores, "Selecione o fornecedor…", true);
+
 })();
