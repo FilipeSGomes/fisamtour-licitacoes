@@ -1,0 +1,3 @@
+BLG-001	ready	P1	Completar briefing e mapa de contexto com evidencias RAG	discovery	reduz ambiguidade antes de qualquer alteracao de codigo.
+BLG-002	ready	P1	Revisar dominio principal root	task	concentra a primeira analise no maior ponto de superficie do projeto.
+BLG-003	ready	P2	Executar auditoria de governanca antes de abrir mudancas	risk	evita execucao sem contrato, validacao ou rastreabilidade.

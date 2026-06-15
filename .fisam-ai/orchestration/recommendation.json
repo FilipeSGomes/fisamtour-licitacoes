@@ -1,0 +1,7 @@
+{
+  "complexity": "small",
+  "stack_hints": "unknown",
+  "recommended_agents": 2,
+  "recommended_mode": "assisted",
+  "recommended_batch": "single"
+}

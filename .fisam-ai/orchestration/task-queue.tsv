@@ -1,0 +1,5 @@
+role	domain	runtime	status	prompt	evidence
+planner	global	claude	ready	orchestration/agent-prompts/planner.md	reports/PROJECT-CLASSIFICATION.md
+executor-01	root	ollama	ready	orchestration/agent-prompts/executor-1-root.md	rag/manifest.tsv
+auditor	global	claude	ready	orchestration/agent-prompts/auditor.md	sdd/06-validation-plan.md
+documenter	global	ollama	ready	orchestration/agent-prompts/documenter.md	sdd/README.md

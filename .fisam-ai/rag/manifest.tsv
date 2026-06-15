@@ -1,0 +1,5 @@
+path	sha256	lines	bytes	language	kind	status
+CNAME	aaa2e4f765f75cae1783462f17e56a6e625d3c32b36d868e07d2b1cd1d63d002	0	19	text	source	unchanged
+app.js	ac564f992fb3167a89f41c55a136be1e98c3de504af6ce1408f575c5e005732d	461	13570	javascript	source	unchanged
+index.html	7eb3c2010c39d44c41ee2c1b0561e4ed608550906279f88750661f88eafc7c53	219	8088	html	source	unchanged
+styles.css	59a46bdc15b81448c0c4dc16271c015ba73be665a14464181bb0b7300dca519b	320	7168	css	source	unchanged

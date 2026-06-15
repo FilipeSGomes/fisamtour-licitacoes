@@ -1,0 +1,12 @@
+{
+  "max_parallel_agents": 3,
+  "coordination_mode": "assisted",
+  "machine_class": "standard",
+  "llm_choice": "hybrid",
+  "roles": [
+    {"name": "planner", "default_runtime": "codex"},
+    {"name": "executor", "default_runtime": "ollama"},
+    {"name": "auditor", "default_runtime": "codex"},
+    {"name": "documenter", "default_runtime": "ollama"}
+  ]
+}

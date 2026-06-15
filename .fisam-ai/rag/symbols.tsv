@@ -1,0 +1,73 @@
+path	line	language	kind	symbol
+app.js	6	javascript	source	const CONFIG = {
+app.js	14	javascript	source	const $ = (s) => document.querySelector(s);
+app.js	16	javascript	source	const els = {
+app.js	56	javascript	source	let state = {
+app.js	61	javascript	source	function brl(n) {
+app.js	65	javascript	source	function parseMoney(v) {
+app.js	67	javascript	source	const s = String(v ?? "").trim().replace(/\./g, "").replace(",", ".");
+app.js	68	javascript	source	const n = Number(s);
+app.js	72	javascript	source	function monthToday() {
+app.js	73	javascript	source	const d = new Date();
+app.js	74	javascript	source	const mm = String(d.getMonth() + 1).padStart(2, "0");
+app.js	78	javascript	source	function openModal(editRow = null) {
+app.js	102	javascript	source	function closeModal() {
+app.js	106	javascript	source	function openConfirm(text, onOk) {
+app.js	109	javascript	source	const handler = () => {
+app.js	117	javascript	source	function closeConfirm() {
+app.js	121	javascript	source	function attachModalClose(modalEl) {
+app.js	123	javascript	source	const close = e.target?.getAttribute?.("data-close");
+app.js	130	javascript	source	function filterRows(rows) {
+app.js	131	javascript	source	const q = els.q.value.trim().toLowerCase();
+app.js	132	javascript	source	const status = els.status.value;
+app.js	135	javascript	source	const matchStatus = (status === "all") ? true : r.status === status;
+app.js	136	javascript	source	const hay = [
+app.js	139	javascript	source	const matchQ = q ? hay.includes(q) : true;
+app.js	144	javascript	source	function computeSummary(rows) {
+app.js	145	javascript	source	let receitas = 0;
+app.js	146	javascript	source	let despesas = 0;
+app.js	157	javascript	source	function badge(tipo) {
+app.js	158	javascript	source	const cls = tipo === "receita" ? "badge badge--receita" : "badge badge--despesa";
+app.js	162	javascript	source	function renderTable(rows) {
+app.js	163	javascript	source	const filtered = filterRows(rows);
+app.js	189	javascript	source	const id = b.getAttribute("data-edit");
+app.js	190	javascript	source	const row = state.rows.find(x => x.id === id);
+app.js	197	javascript	source	const id = b.getAttribute("data-del");
+app.js	205	javascript	source	function escapeHtml(s) {
+app.js	216	javascript	source	function mockData(competencia) {
+app.js	261	javascript	source	async function fetchRows(competencia) {
+app.js	266	javascript	source	const url = `${CONFIG.API_URL}?op=list&competencia=${encodeURIComponent(competencia)}`+`&token=${encodeURIComponent(CONFIG.API_TOKEN)}`;
+app.js	267	javascript	source	const res = await fetch(url);
+app.js	269	javascript	source	const json = await res.json();
+app.js	275	javascript	source	async function saveRow(row) {
+app.js	287	javascript	source	const op = state.editingId ? "update" : "add";
+app.js	288	javascript	source	const payload = { op, token: CONFIG.API_TOKEN, row: { ...row, id: state.editingId || undefined } };
+app.js	290	javascript	source	const res = await fetch(CONFIG.API_URL, {
+app.js	299	javascript	source	async function deleteRow(id) {
+app.js	306	javascript	source	const res = await fetch(CONFIG.API_URL, {
+app.js	315	javascript	source	async function closeMonth(competencia) {
+app.js	321	javascript	source	const res = await fetch(CONFIG.API_URL, {
+app.js	327	javascript	source	const json = await res.json();
+app.js	333	javascript	source	async function fetchOptions() {
+app.js	341	javascript	source	const url = `${CONFIG.API_URL}?op=options&token=${encodeURIComponent(CONFIG.API_TOKEN)}`;
+app.js	342	javascript	source	const res = await fetch(url);
+app.js	344	javascript	source	const json = await res.json();
+app.js	349	javascript	source	function fillSelect(selectEl, items, placeholder = "Selecione…", allowEmpty = false) {
+app.js	350	javascript	source	const current = selectEl.value;
+app.js	353	javascript	source	const opt0 = document.createElement("option");
+app.js	365	javascript	source	const o = document.createElement("option");
+app.js	377	javascript	source	async function refresh() {
+app.js	378	javascript	source	const competencia = els.competencia.value || monthToday();
+app.js	379	javascript	source	const rows = await fetchRows(competencia);
+app.js	384	javascript	source	function exportCSV() {
+app.js	385	javascript	source	const filtered = filterRows(state.rows);
+app.js	386	javascript	source	const header = ["data","licitacao","status","tipo","categoria","fornecedor","descricao","valor","comprovante_url"];
+app.js	387	javascript	source	const lines = [header.join(",")];
+app.js	390	javascript	source	const row = [
+app.js	397	javascript	source	const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+app.js	398	javascript	source	const a = document.createElement("a");
+app.js	404	javascript	source	function wire() {
+app.js	416	javascript	source	const c = els.competencia.value || monthToday();
+app.js	427	javascript	source	const competencia = els.competencia.value || monthToday();
+app.js	428	javascript	source	const row = {
+app.js	457	javascript	source	const opts = await fetchOptions();
