@@ -359,13 +359,20 @@ if (els.filterPago) {
   });
 }
 
-els.form.addEventListener("submit", (e) => {
+els.form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const item = readFormItem();
   if (state.editIndex === null) state.items.push(item);
   else state.items[state.editIndex] = { ...state.items[state.editIndex], ...item };
   els.modal.setAttribute("aria-hidden", "true");
   renderTable();
+  try {
+    await FisamAPI.saveRegistros(licitacaoId, state.items);
+    showAlert("Registro salvo.", "success");
+    setTimeout(() => showAlert(null), 2500);
+  } catch (err) {
+    showAlert(`Erro ao salvar: ${err.message}`, "error");
+  }
 });
 
 FisamAPI.attachModalClose(els.modal);
