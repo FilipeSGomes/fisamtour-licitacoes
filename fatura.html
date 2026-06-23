@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FISAM Tour | Fatura</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="page-fatura">
+  <header class="header no-print">
+    <div class="container header__inner">
+      <div class="brand">
+        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
+        <div class="brand__text">
+          <div class="brand__name">FISAM TOUR</div>
+          <div class="brand__tag" id="pageTag">Fatura mensal</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="nav__link" href="./index.html">Dashboard</a>
+        <a class="nav__link" href="./licitacoes.html">Licitações</a>
+      </nav>
+      <div class="header__actions">
+        <button class="btn btn--outline" id="btnPrint">Imprimir</button>
+        <button class="btn btn--primary" id="btnConfirm">Confirmar faturamento</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="alert no-print" id="alert" hidden></div>
+
+    <section class="fatura-grid no-print">
+      <div class="fatura-col">
+        <h2 class="fatura-col__title">Disponíveis</h2>
+        <p class="muted fatura-col__hint">Ordens de serviço não faturadas</p>
+        <div class="fatura-list" id="listDisp"></div>
+      </div>
+      <div class="fatura-col fatura-col--selected">
+        <h2 class="fatura-col__title">Selecionados para fatura</h2>
+        <div class="fatura-list" id="listSel"></div>
+        <div class="fatura-totals" id="totalsInline"></div>
+      </div>
+    </section>
+
+    <section class="fatura-print" id="printArea">
+      <div class="fatura-doc">
+        <div class="fatura-doc__head">
+          <img src="./logo.png" alt="FISAM Tour" class="fatura-doc__logo">
+          <div>
+            <h1 class="fatura-doc__title">Fatura mensal</h1>
+            <p class="fatura-doc__meta" id="docMeta"></p>
+          </div>
+        </div>
+        <table class="table fatura-doc__table">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Tarifa / Descrição</th>
+              <th class="right">Valor</th>
+              <th class="right">Custo</th>
+              <th class="right">Lucro</th>
+            </tr>
+          </thead>
+          <tbody id="printTbody"></tbody>
+          <tfoot id="printTfoot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="./js/api.js"></script>
+  <script src="./js/fatura.js"></script>
+</body>
+</html>

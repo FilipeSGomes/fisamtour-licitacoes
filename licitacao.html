@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FISAM Tour | Detalhe da Licitação</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header__inner">
+      <div class="brand">
+        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
+        <div class="brand__text">
+          <div class="brand__name">FISAM TOUR</div>
+          <div class="brand__tag" id="pageTag">Detalhe da licitação</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="nav__link" href="./index.html">Dashboard</a>
+        <a class="nav__link" href="./licitacoes.html">Licitações</a>
+        <a class="nav__link" href="./passageiros.html">Passageiros</a>
+        <a class="nav__link" href="./tunas.html">TUNAS</a>
+      </nav>
+      <div class="header__actions">
+        <button class="btn btn--outline" id="btnAdd">Nova linha</button>
+        <button class="btn btn--primary" id="btnSave">Salvar</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="alert" id="alert" hidden></div>
+    <section class="panel">
+      <div class="panel__head panel__head--filters">
+        <div class="field field--inline">
+          <label class="field__label">Filtrar pagamento</label>
+          <select class="field__input" id="filterPago">
+            <option value="all">Todos</option>
+            <option value="sim">Pagos</option>
+            <option value="nao">Não pagos</option>
+          </select>
+        </div>
+      </div>
+      <div class="summary summary--inline" id="totals"></div>
+      <div class="table-wrap">
+        <table class="table" id="table">
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+          <tfoot id="tfoot"></tfoot>
+        </table>
+      </div>
+    </section>
+    <footer class="footer">
+      <div><a class="link" href="./licitacoes.html">← Voltar às licitações</a></div>
+    </footer>
+  </main>
+
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card modal__card--wide" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <h3 class="modal__title" id="modalTitle">Editar registro</h3>
+        <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
+      </div>
+      <form id="form">
+        <div class="grid2" id="formFields"></div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--outline" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Aplicar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <datalist id="passageirosList"></datalist>
+
+  <script src="./js/api.js"></script>
+  <script src="./js/licitacao.js"></script>
+</body>
+</html>

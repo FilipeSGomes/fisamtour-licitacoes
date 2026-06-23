@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FISAM Tour | Licitações</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header__inner">
+      <div class="brand">
+        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
+        <div class="brand__text">
+          <div class="brand__name">FISAM TOUR</div>
+          <div class="brand__tag">Licitações • Administração</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="nav__link" href="./index.html">Dashboard</a>
+        <a class="nav__link nav__link--active" href="./licitacoes.html">Licitações</a>
+        <a class="nav__link" href="./passageiros.html">Passageiros</a>
+        <a class="nav__link" href="./tunas.html">TUNAS</a>
+      </nav>
+      <div class="header__actions">
+        <button class="btn btn--outline" id="btnRefresh">Atualizar</button>
+        <button class="btn btn--primary" id="btnNewLic">Nova licitação</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="alert" id="alert" hidden></div>
+    <section class="panel">
+      <div class="panel__head">
+        <h1 class="title">Licitações</h1>
+      </div>
+      <div class="table-wrap">
+        <table class="table table--admin">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Tipo</th>
+              <th>Status</th>
+              <th class="right">Receitas</th>
+              <th class="right">Despesas</th>
+              <th class="right">Lucro</th>
+              <th class="right">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+    <footer class="footer">
+      <div>© <span id="year"></span> FISAM Tour • Controle interno</div>
+    </footer>
+  </main>
+
+  <div class="modal" id="modalLic" aria-hidden="true">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <h3 class="modal__title" id="modalLicTitle">Licitação</h3>
+        <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
+      </div>
+      <form id="formLic">
+        <div class="grid2" style="padding:16px">
+          <div class="field grid2__full">
+            <label class="field__label">Nome</label>
+            <input class="field__input" id="f_lic_nome" required>
+          </div>
+          <div class="field">
+            <label class="field__label">Tipo</label>
+            <select class="field__input" id="f_lic_tipo" required>
+              <option value="passagens">Passagens</option>
+              <option value="hospedagem">Hospedagem</option>
+              <option value="veiculo">Veículo</option>
+              <option value="calculadora">Calculadora (TUNAS)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label">Status</label>
+            <select class="field__input" id="f_lic_status">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--outline" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="modalTarifas" aria-hidden="true">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card modal__card--wide" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <h3 class="modal__title" id="modalTarTitle">Tarifas</h3>
+        <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
+      </div>
+      <div style="padding:16px">
+        <div id="tarifasList"></div>
+        <button type="button" class="btn btn--outline" id="btnAddTarifa" style="margin-top:12px">+ Tarifa</button>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--outline" data-close="1">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modalFatura" aria-hidden="true">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card modal__card--small" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <h3 class="modal__title">Gerar fatura</h3>
+        <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
+      </div>
+      <form id="formFatura">
+        <div class="field" style="padding:16px">
+          <label class="field__label">Competência</label>
+          <input class="field__input" type="month" id="f_fatura_comp" required>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--outline" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Abrir fatura</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="./js/api.js"></script>
+  <script src="./js/licitacoes.js"></script>
+</body>
+</html>

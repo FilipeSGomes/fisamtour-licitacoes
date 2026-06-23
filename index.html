@@ -25,14 +25,23 @@
         </div>
       </div>
 
+      <nav class="nav">
+        <a class="nav__link nav__link--active" href="./index.html">Dashboard</a>
+        <a class="nav__link" href="./licitacoes.html">Licitações</a>
+        <a class="nav__link" href="./passageiros.html">Passageiros</a>
+        <a class="nav__link" href="./tunas.html">TUNAS</a>
+      </nav>
+
       <div class="header__actions">
         <button class="btn btn--ghost" id="btnExport">Exportar CSV</button>
-        <button class="btn btn--primary" id="btnNew">Novo lançamento</button>
+        <button class="btn btn--primary" id="btnNew">Nova ordem de serviço</button>
       </div>
     </div>
   </header>
 
   <main class="container">
+    <div class="alert" id="alert" hidden></div>
+
     <!-- Top controls -->
     <section class="panel">
       <div class="panel__row">
@@ -126,51 +135,72 @@
     <div class="modal__backdrop" data-close="1"></div>
     <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modal__head">
-        <h3 class="modal__title" id="modalTitle">Novo lançamento</h3>
+        <h3 class="modal__title" id="modalTitle">Nova ordem de serviço</h3>
         <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
       </div>
 
       <form id="form">
         <div class="grid2">
           <div class="field">
+            <label class="field__label">Tipo de registro</label>
+            <select class="field__input" id="f_registro_tipo" required>
+              <option value="ordem_servico" selected>Ordem de serviço</option>
+              <option value="receita">Receita avulsa</option>
+              <option value="despesa">Despesa avulsa</option>
+            </select>
+          </div>
+
+          <div class="field">
             <label class="field__label">Data</label>
             <input class="field__input" type="date" id="f_data" required>
           </div>
 
           <div class="field">
+            <label class="field__label">Licitação</label>
+            <select class="field__input" id="f_licitacao" required></select>
+          </div>
+
+          <div class="field" id="wrap_tarifa">
+            <label class="field__label">Tarifa / Categoria</label>
+            <select class="field__input" id="f_tarifa"></select>
+          </div>
+
+          <div class="field" id="wrap_status_os">
+            <label class="field__label">Status OS</label>
+            <select class="field__input" id="f_status_os">
+              <option value="aberta">Aberta</option>
+              <option value="concluida">Concluída</option>
+            </select>
+          </div>
+
+          <div class="field hidden" id="wrap_tipo_manual">
             <label class="field__label">Tipo</label>
-            <select class="field__input" id="f_tipo" required>
+            <select class="field__input" id="f_tipo">
               <option value="receita">Receita</option>
               <option value="despesa">Despesa</option>
             </select>
           </div>
 
-          <div class="field">
-            <label class="field__label">Licitação</label>
-<select class="field__input" id="f_licitacao" required>
-  <option value="" disabled selected>Selecione…</option>
-</select>
-          </div>
-
-          <div class="field">
+          <div class="field hidden" id="wrap_status_manual">
             <label class="field__label">Status</label>
-            <select class="field__input" id="f_status" required>
+            <select class="field__input" id="f_status">
               <option value="em_andamento">Em andamento</option>
               <option value="ganho">Ganho</option>
               <option value="perdido">Perdido</option>
             </select>
           </div>
 
-          <div class="field">
+          <div class="field hidden" id="wrap_categoria">
             <label class="field__label">Categoria</label>
-            <input class="field__input" id="f_categoria" placeholder="Ex.: passagens, hotel, taxa, comissão" required>
+            <input class="field__input" id="f_categoria" placeholder="Ex.: passagens, hotel, taxa">
           </div>
 
-          <div class="field">
+          <div class="field" id="wrap_fornecedor">
             <label class="field__label">Fornecedor</label>
-            <select class="field__input" id="f_fornecedor">
-            <option value="" selected>Selecione…</option>
-            </select>
+            <div class="field__row">
+              <select class="field__input" id="f_fornecedor"></select>
+              <button type="button" class="btn btn--outline btn--sm" id="btnAddFornecedor">+</button>
+            </div>
           </div>
 
           <div class="field grid2__full">
@@ -181,7 +211,16 @@
           <div class="field">
             <label class="field__label">Valor (R$)</label>
             <input class="field__input" id="f_valor" inputmode="decimal" placeholder="Ex.: 1250,00" required>
-            <div class="hint">Use vírgula ou ponto. Ex.: 1250,00</div>
+          </div>
+
+          <div class="field" id="wrap_custo">
+            <label class="field__label">Custo (R$)</label>
+            <input class="field__input" id="f_custo" inputmode="decimal" placeholder="Ex.: 450,00">
+          </div>
+
+          <div class="field" id="wrap_lucro">
+            <label class="field__label">Lucro (R$)</label>
+            <input class="field__input" id="f_lucro" readonly tabindex="-1">
           </div>
 
           <div class="field">
@@ -193,6 +232,27 @@
         <div class="modal__actions">
           <button type="button" class="btn btn--outline" data-close="1">Cancelar</button>
           <button type="submit" class="btn btn--primary" id="btnSave">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Novo fornecedor -->
+  <div class="modal" id="modalForn" aria-hidden="true">
+    <div class="modal__backdrop" data-close="1"></div>
+    <div class="modal__card modal__card--small" role="dialog" aria-modal="true">
+      <div class="modal__head">
+        <h3 class="modal__title">Novo fornecedor</h3>
+        <button class="iconbtn" aria-label="Fechar" data-close="1">✕</button>
+      </div>
+      <form id="formForn">
+        <div class="field" style="padding:16px">
+          <label class="field__label">Nome</label>
+          <input class="field__input" id="f_forn_nome" required>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--outline" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Salvar</button>
         </div>
       </form>
     </div>
@@ -214,6 +274,7 @@
     </div>
   </div>
 
+  <script src="./js/api.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

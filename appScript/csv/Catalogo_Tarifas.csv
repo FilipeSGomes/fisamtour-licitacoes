@@ -1,0 +1,6 @@
+id,licitacao_id,codigo,nome,valor,custo,editavel,status
+t-coren-carro,coren-ma,carro,Carro,481.76,143,false,ativo
+t-coren-ped,coren-ma,pedestre,Pedestre,32.12,11,false,ativo
+t-tj-diaria,tj-vitoria-es,diaria,Hospedagem (diária),369.87,,false,ativo
+t-tj-ref,tj-vitoria-es,refeicao,Alimentação,189.98,,false,ativo
+t-tunas-livre,tunas-pr,livre,Valor livre,,,true,ativo

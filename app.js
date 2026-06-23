@@ -1,107 +1,144 @@
 /**
- * FISAM Tour - Site estático (Dashboard)
- * Integração com Google Sheets virá via Apps Script (API_URL).
+ * FISAM Tour - Dashboard + Nova Ordem de Serviço
  */
-
-const CONFIG = {
-  INSTAGRAM_URL: "https://instagram.com/fisamtour",
-  WHATSAPP_URL: "https://wa.me/5511910218890",
-  API_URL: "https://script.google.com/macros/s/AKfycbwcakddghwC4hQrfO7spmNHk-O4CEwZMYf227v_rNqwVFPXBnAbpCTMhy1EdPC2X_Sd/exec",
-  API_TOKEN: "fisam-licitacoes-2025-secreto",
-  USE_MOCK: false, // deixe true enquanto não tiver API
-};
 
 const $ = (s) => document.querySelector(s);
 
 const els = {
-  year: $("#year"),
-  instagram: $("#linkInstagram"),
-  whatsapp: $("#linkWhatsApp"),
-
-  competencia: $("#competencia"),
-  q: $("#q"),
-  status: $("#status"),
-
-  btnRefresh: $("#btnRefresh"),
-  btnNew: $("#btnNew"),
-  btnExport: $("#btnExport"),
-  btnCloseMonth: $("#btnCloseMonth"),
-
-  tbody: $("#tbody"),
-  countInfo: $("#countInfo"),
-
-  sumReceitas: $("#sumReceitas"),
-  sumDespesas: $("#sumDespesas"),
-  sumSaldo: $("#sumSaldo"),
-
-  modal: $("#modal"),
-  confirm: $("#confirm"),
-  confirmText: $("#confirmText"),
-  confirmOk: $("#confirmOk"),
-
-  form: $("#form"),
-  modalTitle: $("#modalTitle"),
-
-  f_data: $("#f_data"),
-  f_tipo: $("#f_tipo"),
-  f_licitacao: $("#f_licitacao"),
-  f_status: $("#f_status"),
-  f_categoria: $("#f_categoria"),
-  f_fornecedor: $("#f_fornecedor"),
-  f_descricao: $("#f_descricao"),
-  f_valor: $("#f_valor"),
-  f_comprovante: $("#f_comprovante"),
+  year: $("#year"), instagram: $("#linkInstagram"), whatsapp: $("#linkWhatsApp"),
+  alert: $("#alert"), competencia: $("#competencia"), q: $("#q"), status: $("#status"),
+  btnRefresh: $("#btnRefresh"), btnNew: $("#btnNew"), btnExport: $("#btnExport"), btnCloseMonth: $("#btnCloseMonth"),
+  tbody: $("#tbody"), countInfo: $("#countInfo"),
+  sumReceitas: $("#sumReceitas"), sumDespesas: $("#sumDespesas"), sumSaldo: $("#sumSaldo"),
+  modal: $("#modal"), confirm: $("#confirm"), confirmText: $("#confirmText"), confirmOk: $("#confirmOk"),
+  form: $("#form"), modalTitle: $("#modalTitle"),
+  f_registro_tipo: $("#f_registro_tipo"), f_data: $("#f_data"), f_licitacao: $("#f_licitacao"),
+  f_tarifa: $("#f_tarifa"), f_status_os: $("#f_status_os"), f_tipo: $("#f_tipo"), f_status: $("#f_status"),
+  f_categoria: $("#f_categoria"), f_fornecedor: $("#f_fornecedor"), f_descricao: $("#f_descricao"),
+  f_valor: $("#f_valor"), f_custo: $("#f_custo"), f_lucro: $("#f_lucro"), f_comprovante: $("#f_comprovante"),
+  btnAddFornecedor: $("#btnAddFornecedor"), modalForn: $("#modalForn"), formForn: $("#formForn"), f_forn_nome: $("#f_forn_nome"),
+  wrap_tarifa: $("#wrap_tarifa"), wrap_status_os: $("#wrap_status_os"),
+  wrap_tipo_manual: $("#wrap_tipo_manual"), wrap_status_manual: $("#wrap_status_manual"),
+  wrap_categoria: $("#wrap_categoria"), wrap_custo: $("#wrap_custo"), wrap_lucro: $("#wrap_lucro"),
 };
 
 let state = {
-  rows: [],
-  editingId: null,
+  rows: [], editingId: null, editingOrdemId: null, apiError: null,
+  licitacoes: [], tarifas: [], fornecedores: [],
 };
 
-function brl(n) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
+function showAlert(msg, type = "warn") {
+  if (!els.alert) return;
+  if (!msg) { els.alert.hidden = true; return; }
+  els.alert.hidden = false;
+  els.alert.className = `alert alert--${type}`;
+  els.alert.textContent = msg;
 }
 
-function parseMoney(v) {
-  // aceita "1.234,56" ou "1234.56"
-  const s = String(v ?? "").trim().replace(/\./g, "").replace(",", ".");
-  const n = Number(s);
-  return Number.isFinite(n) ? n : 0;
+function recalcLucro() {
+  const v = FisamAPI.parseMoney(els.f_valor.value);
+  const c = FisamAPI.parseMoney(els.f_custo.value);
+  els.f_lucro.value = (v - c).toFixed(2).replace(".", ",");
 }
 
-function monthToday() {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}`;
+function setFormMode(mode) {
+  const isOS = mode === "ordem_servico";
+  els.wrap_tarifa.classList.toggle("hidden", !isOS);
+  els.wrap_status_os.classList.toggle("hidden", !isOS);
+  els.wrap_custo.classList.toggle("hidden", !isOS);
+  els.wrap_lucro.classList.toggle("hidden", !isOS);
+  els.wrap_tipo_manual.classList.toggle("hidden", isOS);
+  els.wrap_status_manual.classList.toggle("hidden", isOS);
+  els.wrap_categoria.classList.toggle("hidden", isOS);
+  if (isOS) els.f_categoria.removeAttribute("required");
+  else els.f_categoria.setAttribute("required", "required");
 }
 
-function openModal(editRow = null) {
-  state.editingId = editRow ? editRow.id : null;
-  els.modalTitle.textContent = editRow ? "Editar lançamento" : "Novo lançamento";
+async function loadTarifas(licitacaoId) {
+  els.f_tarifa.innerHTML = '<option value="">Carregando…</option>';
+  if (!licitacaoId) {
+    els.f_tarifa.innerHTML = '<option value="">Selecione a licitação…</option>';
+    return;
+  }
+  try {
+    state.tarifas = await FisamAPI.fetchTarifas(licitacaoId);
+    els.f_tarifa.innerHTML = '<option value="">Selecione a tarifa…</option>';
+    for (const t of state.tarifas) {
+      const o = document.createElement("option");
+      o.value = t.codigo;
+      o.textContent = t.nome;
+      o.dataset.valor = t.valor ?? "";
+      o.dataset.custo = t.custo ?? "";
+      o.dataset.editavel = (t.editavel === true || t.editavel === "true" || t.editavel === "1" || t.editavel === 1) ? "1" : "0";
+      o.dataset.nome = t.nome;
+      els.f_tarifa.appendChild(o);
+    }
+  } catch {
+    els.f_tarifa.innerHTML = '<option value="">Sem tarifas cadastradas</option>';
+  }
+}
+
+function applyTarifa() {
+  const opt = els.f_tarifa.selectedOptions[0];
+  if (!opt || !opt.value) return;
+  const editavel = opt.dataset.editavel === "1";
+  els.f_valor.readOnly = !editavel && !!opt.dataset.valor;
+  els.f_custo.readOnly = !editavel && !!opt.dataset.custo;
+  if (opt.dataset.valor) els.f_valor.value = String(opt.dataset.valor).replace(".", ",");
+  if (opt.dataset.custo) els.f_custo.value = String(opt.dataset.custo).replace(".", ",");
+  if (editavel) {
+    els.f_valor.readOnly = false;
+    els.f_custo.readOnly = false;
+  }
+  recalcLucro();
+}
+
+function getSelectedLicitacao() {
+  const opt = els.f_licitacao.selectedOptions[0];
+  if (!opt || !opt.value) return null;
+  return { id: opt.dataset.id || opt.value, nome: opt.textContent };
+}
+
+async function openModal(editRow = null) {
+  state.editingId = editRow?.origem === "ordem_servico" ? null : (editRow?.id || null);
+  state.editingOrdemId = editRow?.origem === "ordem_servico" ? editRow.origem_id : null;
+  els.modalTitle.textContent = editRow ? "Editar registro" : "Nova ordem de serviço";
+
+  els.form.reset();
+  els.f_data.value = new Date().toISOString().slice(0, 10);
+  els.f_registro_tipo.value = "ordem_servico";
+  setFormMode("ordem_servico");
+  FisamAPI.fillSelect(els.f_licitacao, state.licitacoes, "Selecione a licitação…", false, "id");
+  FisamAPI.fillSelect(els.f_fornecedor, state.fornecedores, "Selecione…", true);
 
   if (editRow) {
-    els.f_data.value = editRow.data;
-    els.f_tipo.value = editRow.tipo;
-    els.f_licitacao.value = editRow.licitacao;
-    els.f_status.value = editRow.status;
-    els.f_categoria.value = editRow.categoria;
-    els.f_fornecedor.value = editRow.fornecedor || "";
+    els.f_data.value = editRow.data?.slice(0, 10) || els.f_data.value;
     els.f_descricao.value = editRow.descricao || "";
-    els.f_valor.value = String(editRow.valor).replace(".", ",");
     els.f_comprovante.value = editRow.comprovante_url || "";
-  } else {
-    els.form.reset();
-    els.f_data.value = new Date().toISOString().slice(0, 10);
-    els.f_tipo.value = "receita";
-    els.f_status.value = "em_andamento";
+    els.f_fornecedor.value = editRow.fornecedor || "";
+    const lic = state.licitacoes.find((l) => l.nome === editRow.licitacao);
+    if (lic) {
+      els.f_licitacao.value = lic.id;
+      await loadTarifas(lic.id);
+    }
+    if (editRow.origem === "ordem_servico") {
+      els.f_registro_tipo.value = "ordem_servico";
+      setFormMode("ordem_servico");
+      els.f_valor.value = String(editRow.valor || "").replace(".", ",");
+    } else {
+      els.f_registro_tipo.value = editRow.tipo;
+      setFormMode(editRow.tipo);
+      els.f_tipo.value = editRow.tipo;
+      els.f_status.value = editRow.status;
+      els.f_categoria.value = editRow.categoria;
+      els.f_valor.value = String(editRow.valor || "").replace(".", ",");
+    }
   }
 
   els.modal.setAttribute("aria-hidden", "false");
 }
 
-function closeModal() {
-  els.modal.setAttribute("aria-hidden", "true");
-}
+function closeModal() { els.modal.setAttribute("aria-hidden", "true"); }
 
 function openConfirm(text, onOk) {
   els.confirmText.textContent = text;
@@ -114,44 +151,25 @@ function openConfirm(text, onOk) {
   els.confirmOk.addEventListener("click", handler);
 }
 
-function closeConfirm() {
-  els.confirm.setAttribute("aria-hidden", "true");
-}
-
-function attachModalClose(modalEl) {
-  modalEl.addEventListener("click", (e) => {
-    const close = e.target?.getAttribute?.("data-close");
-    if (close === "1") {
-      modalEl.setAttribute("aria-hidden", "true");
-    }
-  });
-}
-
 function filterRows(rows) {
   const q = els.q.value.trim().toLowerCase();
   const status = els.status.value;
-
   return rows.filter((r) => {
-    const matchStatus = (status === "all") ? true : r.status === status;
-    const hay = [
-      r.licitacao, r.tipo, r.categoria, r.fornecedor, r.descricao
-    ].filter(Boolean).join(" ").toLowerCase();
-    const matchQ = q ? hay.includes(q) : true;
-    return matchStatus && matchQ;
+    const matchStatus = status === "all" ? true : r.status === status;
+    const hay = [r.licitacao, r.tipo, r.categoria, r.fornecedor, r.descricao].filter(Boolean).join(" ").toLowerCase();
+    return (q ? hay.includes(q) : true) && matchStatus;
   });
 }
 
 function computeSummary(rows) {
-  let receitas = 0;
-  let despesas = 0;
-
+  let receitas = 0, despesas = 0;
   for (const r of rows) {
     if (r.tipo === "receita") receitas += r.valor;
     else despesas += r.valor;
   }
-  els.sumReceitas.textContent = brl(receitas);
-  els.sumDespesas.textContent = brl(despesas);
-  els.sumSaldo.textContent = brl(receitas - despesas);
+  els.sumReceitas.textContent = FisamAPI.brl(receitas);
+  els.sumDespesas.textContent = FisamAPI.brl(despesas);
+  els.sumSaldo.textContent = FisamAPI.brl(receitas - despesas);
 }
 
 function badge(tipo) {
@@ -162,18 +180,23 @@ function badge(tipo) {
 function renderTable(rows) {
   const filtered = filterRows(rows);
   computeSummary(filtered);
-
   els.countInfo.textContent = `${filtered.length} itens`;
+
+  if (!filtered.length) {
+    const comp = els.competencia.value || FisamAPI.monthToday();
+    els.tbody.innerHTML = `<tr><td colspan="8" class="empty">${FisamAPI.escapeHtml(state.apiError ? "Erro ao carregar." : `Nenhum lançamento em ${comp}.`)}</td></tr>`;
+    return;
+  }
 
   els.tbody.innerHTML = filtered.map((r) => `
     <tr>
-      <td>${r.data.split("-").reverse().join("/")}</td>
-      <td>${escapeHtml(r.licitacao)}</td>
+      <td>${FisamAPI.formatDateBR(r.data)}</td>
+      <td>${FisamAPI.escapeHtml(r.licitacao)}</td>
       <td>${badge(r.tipo)}</td>
-      <td>${escapeHtml(r.categoria)}</td>
-      <td>${escapeHtml(r.fornecedor || "-")}</td>
-      <td>${escapeHtml(r.descricao || "-")}${r.comprovante_url ? ` • <a class="link" href="${r.comprovante_url}" target="_blank" rel="noopener">comprovante</a>` : ""}</td>
-      <td class="right">${brl(r.valor)}</td>
+      <td>${FisamAPI.escapeHtml(r.categoria)}</td>
+      <td>${FisamAPI.escapeHtml(r.fornecedor || "-")}</td>
+      <td>${FisamAPI.escapeHtml(r.descricao || "-")}</td>
+      <td class="right">${FisamAPI.brl(r.valor)}</td>
       <td class="right">
         <div class="row-actions">
           <button class="btn btn--outline" data-edit="${r.id}">Editar</button>
@@ -183,279 +206,160 @@ function renderTable(rows) {
     </tr>
   `).join("");
 
-  // actions
   els.tbody.querySelectorAll("[data-edit]").forEach((b) => {
     b.addEventListener("click", () => {
-      const id = b.getAttribute("data-edit");
-      const row = state.rows.find(x => x.id === id);
+      const row = state.rows.find((x) => x.id === b.getAttribute("data-edit"));
       if (row) openModal(row);
     });
   });
-
   els.tbody.querySelectorAll("[data-del]").forEach((b) => {
     b.addEventListener("click", () => {
-      const id = b.getAttribute("data-del");
-      openConfirm("Deseja excluir este lançamento?", async () => {
-        await deleteRow(id);
+      openConfirm("Excluir este lançamento?", async () => {
+        try {
+          await FisamAPI.deleteLancamento(b.getAttribute("data-del"));
+          await refresh();
+        } catch (err) { alert(err.message); }
       });
     });
   });
 }
 
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-/* ------------------- Data layer ------------------- */
-
-function mockData(competencia) {
-  // exemplo: use isso só pra ver a UI
-  return [
-    {
-      id: "1",
-      competencia,
-      data: `${competencia}-03`,
-      licitacao: "PE 52/2025 • Licitação Turismo",
-      status: "em_andamento",
-      tipo: "receita",
-      categoria: "comissão",
-      fornecedor: "—",
-      descricao: "Comissão estimada do mês",
-      valor: 3200.00,
-      comprovante_url: "",
-    },
-    {
-      id: "2",
-      competencia,
-      data: `${competencia}-08`,
-      licitacao: "PE 52/2025 • Licitação Turismo",
-      status: "em_andamento",
-      tipo: "despesa",
-      categoria: "taxas",
-      fornecedor: "Operadora",
-      descricao: "Taxas operacionais",
-      valor: 450.50,
-      comprovante_url: "",
-    },
-    {
-      id: "3",
-      competencia,
-      data: `${competencia}-14`,
-      licitacao: "Processo 11/2025 • Órgão X",
-      status: "ganho",
-      tipo: "receita",
-      categoria: "passagens",
-      fornecedor: "—",
-      descricao: "Emissão de passagens (faturado)",
-      valor: 7800.00,
-      comprovante_url: "",
-    }
-  ];
-}
-
-async function fetchRows(competencia) {
-  if (CONFIG.USE_MOCK || !CONFIG.API_URL) {
-    return mockData(competencia);
-  }
-
-  const url = `${CONFIG.API_URL}?op=list&competencia=${encodeURIComponent(competencia)}`+`&token=${encodeURIComponent(CONFIG.API_TOKEN)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Falha ao carregar dados da API");
-  const json = await res.json();
-
-  if (!json.ok) throw new Error(json.error || "Erro na API");
-  return json.rows || [];
-}
-
-async function saveRow(row) {
-  if (CONFIG.USE_MOCK || !CONFIG.API_URL) {
-    // mock: salva em memória
-    if (state.editingId) {
-      state.rows = state.rows.map(r => r.id === state.editingId ? { ...row, id: state.editingId } : r);
-    } else {
-      state.rows = [{ ...row, id: String(Date.now()) }, ...state.rows];
-    }
-    renderTable(state.rows);
-    return;
-  }
-
-  const op = state.editingId ? "update" : "add";
-  const payload = { op, token: CONFIG.API_TOKEN, row: { ...row, id: state.editingId || undefined } };
-
-  const res = await fetch(CONFIG.API_URL, {
-    method: "POST",
-    headers: { "Content-Type":"text/plain;charset=utf-8" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Falha ao salvar na API");
-  await refresh();
-}
-
-async function deleteRow(id) {
-  if (CONFIG.USE_MOCK || !CONFIG.API_URL) {
-    state.rows = state.rows.filter(r => r.id !== id);
-    renderTable(state.rows);
-    return;
-  }
-
-  const res = await fetch(CONFIG.API_URL, {
-    method: "POST",
-    headers: { "Content-Type":"text/plain;charset=utf-8" },
-    body: JSON.stringify({ op: "delete", token: CONFIG.API_TOKEN, id }),
-  });
-  if (!res.ok) throw new Error("Falha ao excluir na API");
-  await refresh();
-}
-
-async function closeMonth(competencia) {
-  if (CONFIG.USE_MOCK || !CONFIG.API_URL) {
-    alert("Mock: mês fechado (aqui depois vai chamar a API e gerar invoice).");
-    return;
-  }
-
-  const res = await fetch(CONFIG.API_URL, {
-    method: "POST",
-    headers: { "Content-Type":"text/plain;charset=utf-8" },
-    body: JSON.stringify({ op: "closeMonth", token: CONFIG.API_TOKEN, competencia }),
-  });
-  if (!res.ok) throw new Error("Falha ao fechar mês");
-  const json = await res.json();
-  // Ex.: json.invoicePdfUrl
-  alert("Mês fechado com sucesso!");
-  await refresh();
-}
-
-async function fetchOptions() {
-  if (CONFIG.USE_MOCK || !CONFIG.API_URL) {
-    return {
-      licitacoes: [{ id:"L1", nome:"PE 52/2025 • Órgão X" }],
-      fornecedores: [{ id:"F1", nome:"Operadora" }]
-    };
-  }
-
-  const url = `${CONFIG.API_URL}?op=options&token=${encodeURIComponent(CONFIG.API_TOKEN)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Falha ao carregar options");
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || "Erro options");
-  return json;
-}
-
-function fillSelect(selectEl, items, placeholder = "Selecione…", allowEmpty = false) {
-  const current = selectEl.value;
-  selectEl.innerHTML = "";
-
-  const opt0 = document.createElement("option");
-  opt0.textContent = placeholder;
-  opt0.value = "";
-  opt0.disabled = !allowEmpty;
-  opt0.selected = true;
-  selectEl.appendChild(opt0);
-
-  if (allowEmpty) {
-    opt0.disabled = false;
-  }
-
-  for (const it of items) {
-    const o = document.createElement("option");
-    o.value = it.nome;
-    o.textContent = it.nome;
-    selectEl.appendChild(o);
-  }
-
-  // tenta preservar seleção se houver
-  if (current) selectEl.value = current;
-}
-
-/* ------------------- UI actions ------------------- */
-
 async function refresh() {
-  const competencia = els.competencia.value || monthToday();
-  const rows = await fetchRows(competencia);
-  state.rows = rows;
+  const competencia = els.competencia.value || FisamAPI.monthToday();
+  state.apiError = null;
+  showAlert(null);
+  try {
+    state.rows = await FisamAPI.listLancamentos(competencia);
+    if (!state.rows.length) showAlert(`Nenhum lançamento em ${competencia}.`, "info");
+  } catch (err) {
+    state.apiError = err;
+    state.rows = [];
+    showAlert(`Erro na API: ${err.message}`, "error");
+  }
   renderTable(state.rows);
 }
 
 function exportCSV() {
   const filtered = filterRows(state.rows);
-  const header = ["data","licitacao","status","tipo","categoria","fornecedor","descricao","valor","comprovante_url"];
+  const header = ["data", "licitacao", "status", "tipo", "categoria", "fornecedor", "descricao", "valor"];
   const lines = [header.join(",")];
-
   for (const r of filtered) {
-    const row = [
-      r.data, r.licitacao, r.status, r.tipo, r.categoria,
-      r.fornecedor || "", r.descricao || "", String(r.valor), r.comprovante_url || ""
-    ].map(v => `"${String(v).replaceAll('"','""')}"`);
-    lines.push(row.join(","));
+    lines.push([r.data, r.licitacao, r.status, r.tipo, r.categoria, r.fornecedor || "", r.descricao || "", r.valor]
+      .map((v) => `"${String(v).replaceAll('"', '""')}"`).join(","));
   }
-
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `fisam_lancamentos_${els.competencia.value || monthToday()}.csv`;
+  a.download = `fisam_lancamentos_${els.competencia.value || FisamAPI.monthToday()}.csv`;
   a.click();
 }
 
 function wire() {
   els.year.textContent = String(new Date().getFullYear());
-
-  els.instagram.href = CONFIG.INSTAGRAM_URL;
-  els.whatsapp.href = CONFIG.WHATSAPP_URL;
-
-  els.competencia.value = monthToday();
+  els.instagram.href = FisamAPI.CONFIG.INSTAGRAM_URL;
+  els.whatsapp.href = FisamAPI.CONFIG.WHATSAPP_URL;
+  els.competencia.value = FisamAPI.monthToday();
 
   els.btnRefresh.addEventListener("click", refresh);
   els.btnNew.addEventListener("click", () => openModal(null));
   els.btnExport.addEventListener("click", exportCSV);
   els.btnCloseMonth.addEventListener("click", () => {
-    const c = els.competencia.value || monthToday();
-    openConfirm(`Confirmar fechamento da competência ${c}?`, () => closeMonth(c));
+    const c = els.competencia.value || FisamAPI.monthToday();
+    openConfirm(`Fechar competência ${c}?`, async () => {
+      try {
+        await FisamAPI.closeMonth(c);
+        alert("Mês fechado!");
+        await refresh();
+      } catch (err) { alert(err.message); }
+    });
   });
 
   els.q.addEventListener("input", () => renderTable(state.rows));
   els.status.addEventListener("change", () => renderTable(state.rows));
   els.competencia.addEventListener("change", refresh);
 
-  els.form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  els.f_registro_tipo.addEventListener("change", () => setFormMode(els.f_registro_tipo.value));
+  els.f_licitacao.addEventListener("change", () => loadTarifas(els.f_licitacao.value));
+  els.f_tarifa.addEventListener("change", applyTarifa);
+  els.f_valor.addEventListener("input", recalcLucro);
+  els.f_custo.addEventListener("input", recalcLucro);
 
-    const competencia = els.competencia.value || monthToday();
-    const row = {
-      competencia,
-      data: els.f_data.value,
-      tipo: els.f_tipo.value,
-      licitacao: els.f_licitacao.value.trim(),
-      status: els.f_status.value,
-      categoria: els.f_categoria.value.trim(),
-      fornecedor: els.f_fornecedor.value.trim(),
-      descricao: els.f_descricao.value.trim(),
-      valor: parseMoney(els.f_valor.value),
-      comprovante_url: els.f_comprovante.value.trim(),
-    };
-
-    if (!row.data || !row.tipo || !row.licitacao || !row.categoria || !Number.isFinite(row.valor)) {
-      alert("Preencha os campos obrigatórios.");
-      return;
-    }
-
-    await saveRow(row);
-    closeModal();
+  els.btnAddFornecedor.addEventListener("click", () => {
+    els.f_forn_nome.value = "";
+    els.modalForn.setAttribute("aria-hidden", "false");
   });
 
-  attachModalClose(els.modal);
-  attachModalClose(els.confirm);
+  els.formForn.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await FisamAPI.saveFornecedor({ nome: els.f_forn_nome.value.trim() });
+      const opts = await FisamAPI.fetchOptions();
+      state.fornecedores = opts.fornecedores;
+      FisamAPI.fillSelect(els.f_fornecedor, state.fornecedores, "Selecione…", true);
+      els.f_fornecedor.value = els.f_forn_nome.value.trim();
+      els.modalForn.setAttribute("aria-hidden", "true");
+    } catch (err) { alert(err.message); }
+  });
+
+  els.form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const competencia = els.competencia.value || FisamAPI.monthToday();
+    const lic = getSelectedLicitacao();
+    if (!lic) { alert("Selecione a licitação."); return; }
+
+    const modo = els.f_registro_tipo.value;
+    try {
+      if (modo === "ordem_servico") {
+        const tarOpt = els.f_tarifa.selectedOptions[0];
+        const valor = FisamAPI.parseMoney(els.f_valor.value);
+        const custo = FisamAPI.parseMoney(els.f_custo.value);
+        await FisamAPI.saveOrdem({
+          id: state.editingOrdemId || undefined,
+          competencia,
+          data: els.f_data.value,
+          licitacao_id: lic.id,
+          licitacao_nome: lic.nome,
+          tarifa_codigo: tarOpt?.value || "",
+          tarifa_nome: tarOpt?.dataset.nome || tarOpt?.textContent || "",
+          fornecedor: els.f_fornecedor.value.trim(),
+          descricao: els.f_descricao.value.trim(),
+          valor,
+          custo,
+          lucro: valor - custo,
+          status_os: els.f_status_os.value,
+          pago: "nao",
+          comprovante_url: els.f_comprovante.value.trim(),
+        });
+      } else {
+        const row = {
+          competencia, data: els.f_data.value, licitacao: lic.nome,
+          status: els.f_status.value, tipo: modo,
+          categoria: els.f_categoria.value.trim(),
+          fornecedor: els.f_fornecedor.value.trim(),
+          descricao: els.f_descricao.value.trim(),
+          valor: FisamAPI.parseMoney(els.f_valor.value),
+          comprovante_url: els.f_comprovante.value.trim(),
+          origem: "manual",
+        };
+        if (state.editingId) await FisamAPI.updateLancamento({ ...row, id: state.editingId });
+        else await FisamAPI.addLancamento(row);
+      }
+      closeModal();
+      await refresh();
+    } catch (err) { alert(err.message); }
+  });
+
+  FisamAPI.attachModalClose(els.modal);
+  FisamAPI.attachModalClose(els.confirm);
+  FisamAPI.attachModalClose(els.modalForn);
 }
 
-(async function init(){
+(async function init() {
   wire();
+  try {
+    const opts = await FisamAPI.fetchOptions();
+    state.licitacoes = opts.licitacoes;
+    state.fornecedores = opts.fornecedores;
+  } catch (_) { /* ok */ }
   await refresh();
-  const opts = await fetchOptions();
-fillSelect(els.f_licitacao, opts.licitacoes, "Selecione a licitação…", false);
-fillSelect(els.f_fornecedor, opts.fornecedores, "Selecione o fornecedor…", true);
-
 })();
