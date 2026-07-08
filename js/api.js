@@ -5,7 +5,11 @@ const FisamAPI = (() => {
   const CONFIG = {
     INSTAGRAM_URL: "https://instagram.com/fisamtour",
     WHATSAPP_URL: "https://wa.me/5511910218890",
-    API_URL: "https://script.google.com/macros/s/AKfycbwcakddghwC4hQrfO7spmNHk-O4CEwZMYf227v_rNqwVFPXBnAbpCTMhy1EdPC2X_Sd/exec",
+    // Backend novo (Node/Express na Vercel + Postgres via Supabase), substitui o
+    // Google Apps Script. Mesmo contrato de op= — só a URL muda.
+    // TODO: trocar pela URL real após o deploy em backend/README.md (ex: https://<projeto>.vercel.app/api).
+    API_URL: "https://SEU-PROJETO.vercel.app/api",
+    // TODO: trocar pelo valor de API_TOKEN definido nas env vars da Vercel (backend/.env.example).
     API_TOKEN: "fisam-licitacoes-2025-secreto",
     USE_MOCK: false,
   };
