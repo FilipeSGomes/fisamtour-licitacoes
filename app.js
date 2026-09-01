@@ -69,7 +69,7 @@ async function loadTarifas(licitacaoId) {
       o.textContent = t.nome;
       o.dataset.valor = t.valor ?? "";
       o.dataset.custo = t.custo ?? "";
-      o.dataset.editavel = (t.editavel === true || t.editavel === "true" || t.editavel === "1" || t.editavel === 1) ? "1" : "0";
+      o.dataset.editavel = FisamAPI.isEditavel(t.editavel) ? "1" : "0";
       o.dataset.nome = t.nome;
       els.f_tarifa.appendChild(o);
     }
@@ -99,12 +99,21 @@ function getSelectedLicitacao() {
   return { id: opt.dataset.id || opt.value, nome: opt.textContent };
 }
 
+function moneyInput(v) {
+  const n = FisamAPI.parseMoney(v);
+  if (!n && n !== 0) return "";
+  return String(n).replace(".", ",");
+}
+
 async function openModal(editRow = null) {
-  state.editingId = editRow?.origem === "ordem_servico" ? null : (editRow?.id || null);
-  state.editingOrdemId = editRow?.origem === "ordem_servico" ? editRow.origem_id : null;
+  const fromOS = FisamAPI.isOrdemOrigem(editRow?.origem);
+  state.editingId = fromOS ? null : (editRow?.id || null);
+  state.editingOrdemId = fromOS ? editRow.origem_id : null;
   els.modalTitle.textContent = editRow ? "Editar registro" : "Nova ordem de serviço";
 
   els.form.reset();
+  els.f_valor.readOnly = false;
+  els.f_custo.readOnly = false;
   els.f_data.value = new Date().toISOString().slice(0, 10);
   els.f_registro_tipo.value = "ordem_servico";
   setFormMode("ordem_servico");
@@ -112,7 +121,7 @@ async function openModal(editRow = null) {
   FisamAPI.fillSelect(els.f_fornecedor, state.fornecedores, "Selecione…", true);
 
   if (editRow) {
-    els.f_data.value = editRow.data?.slice(0, 10) || els.f_data.value;
+    els.f_data.value = String(editRow.data || "").slice(0, 10) || els.f_data.value;
     els.f_descricao.value = editRow.descricao || "";
     els.f_comprovante.value = editRow.comprovante_url || "";
     els.f_fornecedor.value = editRow.fornecedor || "";
@@ -121,17 +130,40 @@ async function openModal(editRow = null) {
       els.f_licitacao.value = lic.id;
       await loadTarifas(lic.id);
     }
-    if (editRow.origem === "ordem_servico") {
+    if (fromOS) {
       els.f_registro_tipo.value = "ordem_servico";
       setFormMode("ordem_servico");
-      els.f_valor.value = String(editRow.valor || "").replace(".", ",");
+      els.f_tarifa.value = editRow.categoria || "";
+      els.f_valor.value = moneyInput(editRow.valor);
+      els.f_custo.value = moneyInput(editRow.custo);
+      if (editRow.origem_id) {
+        try {
+          const ordens = await FisamAPI.listOrdens(editRow.competencia || els.competencia.value, lic?.id);
+          const os = ordens.find((o) => String(o.id) === String(editRow.origem_id));
+          if (os) {
+            els.f_status_os.value = os.status_os || "aberta";
+            els.f_tarifa.value = os.tarifa_codigo || els.f_tarifa.value;
+            els.f_valor.value = moneyInput(os.valor);
+            els.f_custo.value = moneyInput(os.custo);
+            if (os.fornecedor) els.f_fornecedor.value = os.fornecedor;
+            if (os.descricao) els.f_descricao.value = os.descricao;
+          }
+        } catch (_) { /* usa campos do lançamento */ }
+      }
+      const opt = els.f_tarifa.selectedOptions[0];
+      if (opt && opt.value) {
+        const editavel = opt.dataset.editavel === "1";
+        els.f_valor.readOnly = !editavel;
+        els.f_custo.readOnly = !editavel;
+      }
+      recalcLucro();
     } else {
       els.f_registro_tipo.value = editRow.tipo;
       setFormMode(editRow.tipo);
       els.f_tipo.value = editRow.tipo;
       els.f_status.value = editRow.status;
       els.f_categoria.value = editRow.categoria;
-      els.f_valor.value = String(editRow.valor || "").replace(".", ",");
+      els.f_valor.value = moneyInput(editRow.valor);
     }
   }
 
@@ -214,9 +246,12 @@ function renderTable(rows) {
   });
   els.tbody.querySelectorAll("[data-del]").forEach((b) => {
     b.addEventListener("click", () => {
-      openConfirm("Excluir este lançamento?", async () => {
+      const row = state.rows.find((x) => x.id === b.getAttribute("data-del"));
+      const fromOS = FisamAPI.isOrdemOrigem(row?.origem) && row?.origem_id;
+      openConfirm(fromOS ? "Excluir esta ordem de serviço e os lançamentos vinculados?" : "Excluir este lançamento?", async () => {
         try {
-          await FisamAPI.deleteLancamento(b.getAttribute("data-del"));
+          if (fromOS) await FisamAPI.deleteOrdem(row.origem_id);
+          else await FisamAPI.deleteLancamento(b.getAttribute("data-del"));
           await refresh();
         } catch (err) { alert(err.message); }
       });
@@ -224,12 +259,50 @@ function renderTable(rows) {
   });
 }
 
+function rowsFromOrdem(os, competencia) {
+  const st = String(os.status_os || "").toLowerCase();
+  if (st === "inativo" || st === "cancelada") return [];
+  const base = {
+    competencia: os.competencia || competencia,
+    data: os.data,
+    licitacao: os.licitacao_nome,
+    status: "em_andamento",
+    categoria: os.tarifa_codigo || "ordem",
+    fornecedor: os.fornecedor || "",
+    comprovante_url: os.comprovante_url || "",
+    custo: os.custo || 0,
+    origem: "ordem_servico",
+    origem_id: os.id,
+  };
+  const desc = os.descricao || os.tarifa_nome || "Ordem de serviço";
+  const out = [];
+  if (os.valor) {
+    out.push({ ...base, id: "os-rec-" + os.id, tipo: "receita", descricao: desc, valor: os.valor });
+  }
+  if (os.custo) {
+    out.push({ ...base, id: "os-desp-" + os.id, tipo: "despesa", descricao: "Custo: " + desc, valor: os.custo });
+  }
+  return out;
+}
+
 async function refresh() {
   const competencia = els.competencia.value || FisamAPI.monthToday();
   state.apiError = null;
   showAlert(null);
   try {
-    state.rows = await FisamAPI.listLancamentos(competencia);
+    const [lancamentos, ordens] = await Promise.all([
+      FisamAPI.listLancamentos(competencia),
+      FisamAPI.listOrdens(competencia).catch(() => []),
+    ]);
+    const synced = new Set(
+      lancamentos.filter((r) => FisamAPI.isOrdemOrigem(r.origem) && r.origem_id).map((r) => String(r.origem_id))
+    );
+    const extras = [];
+    for (const os of ordens) {
+      if (synced.has(String(os.id))) continue;
+      extras.push(...rowsFromOrdem(os, competencia));
+    }
+    state.rows = lancamentos.concat(extras);
     if (!state.rows.length) showAlert(`Nenhum lançamento em ${competencia}.`, "info");
   } catch (err) {
     state.apiError = err;

@@ -103,8 +103,7 @@ function showAlert(msg, type = "warn") {
 }
 
 function num(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
+  return FisamAPI.parseMoney(v);
 }
 
 function normalizePago(v) {
@@ -226,7 +225,7 @@ function renderTable() {
 
 async function togglePago(checkbox) {
   const id = checkbox.getAttribute("data-pago-id");
-  const item = state.items.find((x) => x.id === id);
+  const item = state.items.find((x) => String(x.id) === String(id));
   if (!item) return;
   const pago = checkbox.checked ? "sim" : "nao";
   checkbox.disabled = true;
@@ -293,17 +292,20 @@ function openEditor(index = null) {
 }
 
 function readFormItem() {
+  const existing = state.editIndex === null ? {} : (state.items[state.editIndex] || {});
   const item = {};
   for (const f of state.fields) {
     const input = els.form.querySelector(`[name="${f.key}"]`);
     if (f.type === "pago") {
       item[f.key] = input?.checked ? "sim" : "nao";
+    } else if (f.type === "number") {
+      item[f.key] = input ? FisamAPI.parseMoney(input.value) : 0;
     } else {
       item[f.key] = input ? input.value.trim() : "";
     }
   }
-  if (!item.id) item.id = "pg-" + Date.now();
-  item.status = "ativo";
+  item.id = existing.id || item.id || ("pg-" + Date.now());
+  item.status = existing.status || "ativo";
   return recalcLucro(item);
 }
 
@@ -368,6 +370,7 @@ els.form.addEventListener("submit", async (e) => {
   renderTable();
   try {
     await FisamAPI.saveRegistros(licitacaoId, state.items);
+    await load();
     showAlert("Registro salvo.", "success");
     setTimeout(() => showAlert(null), 2500);
   } catch (err) {

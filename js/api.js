@@ -5,11 +5,9 @@ const FisamAPI = (() => {
   const CONFIG = {
     INSTAGRAM_URL: "https://instagram.com/fisamtour",
     WHATSAPP_URL: "https://wa.me/5511910218890",
-    // Backend novo (Node/Express na Vercel + Postgres via Supabase), substitui o
-    // Google Apps Script. Mesmo contrato de op= — só a URL muda.
-    // TODO: trocar pela URL real após o deploy em backend/README.md (ex: https://<projeto>.vercel.app/api).
-    API_URL: "https://SEU-PROJETO.vercel.app/api",
-    // TODO: trocar pelo valor de API_TOKEN definido nas env vars da Vercel (backend/.env.example).
+    // Produção atual: Google Apps Script. Após o deploy Vercel (backend/README.md),
+    // troque só esta URL (ex: https://<projeto>.vercel.app/api).
+    API_URL: "https://script.google.com/macros/s/AKfycbwcakddghwC4hQrfO7spmNHk-O4CEwZMYf227v_rNqwVFPXBnAbpCTMhy1EdPC2X_Sd/exec",
     API_TOKEN: "fisam-licitacoes-2025-secreto",
     USE_MOCK: false,
   };
@@ -19,8 +17,14 @@ const FisamAPI = (() => {
   }
 
   function parseMoney(v) {
-    const s = String(v ?? "").trim().replace(/\./g, "").replace(",", ".");
-    const n = Number(s);
+    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+    const s = String(v ?? "").trim();
+    if (!s) return 0;
+    if (/^-?\d+(\.\d+)?$/.test(s)) {
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+    const n = Number(s.replace(/\./g, "").replace(",", "."));
     return Number.isFinite(n) ? n : 0;
   }
 
@@ -41,14 +45,24 @@ const FisamAPI = (() => {
   function formatDateBR(iso) {
     if (!iso) return "-";
     const s = String(iso);
-    const p = s.slice(0, 10).split("-");
-    if (p.length === 3 && p[0].length === 4) return `${p[2]}/${p[1]}/${p[0]}`;
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
     return s;
   }
 
   function isPago(v) {
     const s = String(v ?? "").trim().toLowerCase();
     return s === "sim" || s === "s" || s === "1" || s === "true" || s === "x";
+  }
+
+  function isEditavel(v) {
+    const s = String(v ?? "").trim().toLowerCase();
+    return !(s === "nao" || s === "não" || s === "n" || s === "0" || s === "false" || s === "no");
+  }
+
+  function isOrdemOrigem(v) {
+    const s = String(v ?? "").trim().toLowerCase();
+    return s === "ordem_servico" || s === "ordens_servico";
   }
 
   let pendingRequests = 0;
@@ -251,6 +265,7 @@ const FisamAPI = (() => {
 
   return {
     CONFIG, brl, parseMoney, monthToday, escapeHtml, formatDateBR, isPago,
+    isEditavel, isOrdemOrigem,
     apiGet, apiPost, listLancamentos, fetchOptions, listLicitacoes, fetchTarifas,
     listOrdens, fetchFaturaElegiveis, faturaPreview, getRegistros, saveRegistros,
     updateRegistroPago, deleteRegistro, saveOrdem, deleteOrdem, saveLicitacao,

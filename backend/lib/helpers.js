@@ -1,6 +1,18 @@
 function toNumber(v) {
   if (v === null || v === undefined || v === "") return 0;
-  const n = Number(v);
+  if (v instanceof Date) return 0;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  const s = String(v).trim().replace(/\s/g, "");
+  if (!s) return 0;
+  let n;
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) || /^-?\d+,\d+$/.test(s)) {
+    n = Number(s.replace(/\./g, "").replace(",", "."));
+  } else if (/^-?\d+(\.\d+)?$/.test(s)) {
+    n = Number(s);
+  } else {
+    n = Number(s.replace(",", "."));
+  }
   return Number.isFinite(n) ? n : 0;
 }
 

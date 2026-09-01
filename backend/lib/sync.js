@@ -110,7 +110,7 @@ async function syncAllLancamentos(db = pool) {
   }
 
   const ordens = (await db.query(
-    `select * from ordens_servico where faturado_em is not null and lower(status_os) <> 'inativo'`
+    `select * from ordens_servico where lower(coalesce(status_os,'')) not in ('inativo','cancelada')`
   )).rows;
 
   for (const ordem of ordens) {

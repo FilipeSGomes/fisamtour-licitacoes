@@ -114,7 +114,10 @@ async function saveTarifa(data) {
     nome: String(data.nome || "").trim(),
     valor: toNumber(data.valor),
     custo: toNumber(data.custo),
-    editavel: String(data.editavel || "sim"),
+    editavel: (() => {
+      const s = String(data.editavel ?? "").trim().toLowerCase();
+      return (s === "nao" || s === "não" || s === "n" || s === "0" || s === "false" || s === "no") ? "nao" : "sim";
+    })(),
     status: String(data.status || "ativo"),
   };
   if (!tarifa.licitacao_id) throw new Error("licitacao_id é obrigatório");

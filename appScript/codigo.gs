@@ -170,29 +170,34 @@ function doPost(e) {
     if (op === "closeMonth") {
       const competencia = (body.competencia || "").trim();
       if (!competencia) return json({ ok: false, error: "competencia é obrigatória" });
-      return json({ ok: true, ...closeMonth(competencia) });
+      return json({ ok: true, ...withLock_(() => closeMonth(competencia)) });
     }
 
     if (op === "saveRegistros") {
       const licitacaoId = (body.licitacao_id || "").trim();
       if (!licitacaoId) return json({ ok: false, error: "licitacao_id é obrigatório" });
-      const saved = saveRegistros_(licitacaoId, body.items || []);
-      syncAllLancamentos_();
+      const saved = withLock_(() => {
+        const result = saveRegistros_(licitacaoId, body.items || []);
+        syncAllLancamentos_();
+        return result;
+      });
       return json({ ok: true, ...saved });
     }
 
     if (op === "syncLancamentos") {
-      return json({ ok: true, ...syncAllLancamentos_() });
+      return json({ ok: true, ...withLock_(() => syncAllLancamentos_()) });
     }
 
     if (op === "saveOrdem") {
       const ordem = body.ordem || body.row || body;
-      return json({ ok: true, ordem: saveOrdem_(ordem) });
+      return json({ ok: true, ordem: withLock_(() => saveOrdem_(ordem)) });
     }
 
     if (op === "deleteOrdem") {
-      deleteOrdem_(body.id);
-      syncAllLancamentos_();
+      withLock_(() => {
+        deleteOrdem_(body.id);
+        syncAllLancamentos_();
+      });
       return json({ ok: true });
     }
 
@@ -222,15 +227,17 @@ function doPost(e) {
       const licitacaoId = (body.licitacao_id || "").trim();
       const id = (body.id || "").trim();
       if (!licitacaoId || !id) return json({ ok: false, error: "licitacao_id e id são obrigatórios" });
-      deleteRegistro_(licitacaoId, id);
-      syncAllLancamentos_();
+      withLock_(() => {
+        deleteRegistro_(licitacaoId, id);
+        syncAllLancamentos_();
+      });
       return json({ ok: true });
     }
 
     if (op === "faturarOrdens") {
       const ids = body.ids || [];
       if (!ids.length) return json({ ok: false, error: "ids é obrigatório" });
-      return json({ ok: true, ...faturarOrdens_(ids) });
+      return json({ ok: true, ...withLock_(() => faturarOrdens_(ids)) });
     }
 
     return json({ ok: false, error: "op inválida" });
@@ -255,7 +262,7 @@ function listLancamentos(competencia) {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row[idx.competencia]) continue;
-    const comp = String(row[idx.competencia]).trim();
+    const comp = competenciaFromValue_(row[idx.competencia]);
     if (comp !== competencia) continue;
 
     out.push({
@@ -407,7 +414,9 @@ function getRegistros_(licitacaoId) {
     const row = data[i];
     if (String(row[idx.licitacao_id] || "").trim() !== licitacaoId) continue;
     if (String(row[idx.status] || "ativo").toLowerCase() === "inativo") continue;
-    items.push(rowToObject_(headers, row));
+    const obj = rowToObject_(headers, row);
+    if (obj.pago !== undefined) obj.pago = normalizePago_(obj.pago);
+    items.push(obj);
   }
 
   return { licitacao: meta, items, totais: totaisRegistros_(licitacaoId, meta.tipo) };
@@ -525,8 +534,8 @@ function appendLancamentosFromOrdens_(sh) {
 
   for (let i = 1; i < ordemData.length; i++) {
     const row = ordemData[i];
-    if (String(row[idx.faturado_em] || "").trim() === "") continue;
-    if (String(row[idx.status_os] || "ativo").toLowerCase() === "inativo") continue;
+    const st = String(row[idx.status_os] || "").toLowerCase();
+    if (st === "inativo" || st === "cancelada") continue;
 
     const obj = rowToObject_(headers, row);
     for (const lanc of buildLancamentosFromOrdem_(obj)) {
@@ -603,7 +612,7 @@ function buildLancamentosFromOrdem_(ordem) {
     status: "em_andamento",
     fornecedor,
     comprovante_url: String(ordem.comprovante_url || ""),
-    origem: SHEET_ORDENS,
+    origem: "ordem_servico",
     origem_id: String(ordem.id || "")
   };
 
@@ -764,7 +773,7 @@ function listOrdens_(competencia, licitacaoId) {
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (competencia && String(row[idx.competencia] || "").trim() !== competencia) continue;
+    if (competencia && competenciaFromValue_(row[idx.competencia]) !== competencia) continue;
     if (licitacaoId && String(row[idx.licitacao_id] || "").trim() !== licitacaoId) continue;
     if (String(row[idx.status_os] || "ativo").toLowerCase() === "inativo") continue;
 
@@ -941,7 +950,7 @@ function listTarifas_(licitacaoId) {
       nome: String(row[idx.nome] || ""),
       valor: toNumber_(row[idx.valor]),
       custo: toNumber_(row[idx.custo]),
-      editavel: String(row[idx.editavel] || "sim"),
+      editavel: normalizeEditavel_(row[idx.editavel]),
       status: String(row[idx.status] || "ativo")
     });
   }
@@ -961,7 +970,7 @@ function saveTarifa_(data) {
     nome: String(data.nome || "").trim(),
     valor: toNumber_(data.valor),
     custo: toNumber_(data.custo),
-    editavel: String(data.editavel || "sim"),
+    editavel: normalizeEditavel_(data.editavel),
     status: String(data.status || "ativo")
   };
 
@@ -1228,7 +1237,10 @@ function indexMap_(headers) {
 
 function rowToObject_(headers, row) {
   const obj = {};
-  headers.forEach((h, i) => { obj[h] = row[i]; });
+  headers.forEach((h, i) => {
+    const v = row[i];
+    obj[h] = v instanceof Date ? toISODate_(v) : v;
+  });
   return obj;
 }
 
@@ -1287,10 +1299,19 @@ function assertRow_(r) {
 function toNumber_(v) {
   if (v === null || v === undefined || v === "") return 0;
   if (v instanceof Date) return 0;
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  if (n > 20000 && n < 60000 && Math.floor(n) === n) return 0;
-  return n;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  const s = String(v).trim().replace(/\s/g, "");
+  if (!s) return 0;
+  let n;
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) || /^-?\d+,\d+$/.test(s)) {
+    n = Number(s.replace(/\./g, "").replace(",", "."));
+  } else if (/^-?\d+(\.\d+)?$/.test(s)) {
+    n = Number(s);
+  } else {
+    n = Number(s.replace(",", "."));
+  }
+  return Number.isFinite(n) ? n : 0;
 }
 
 
@@ -1298,6 +1319,36 @@ function normalizePago_(v) {
   const s = String(v || "").trim().toLowerCase();
   if (s === "sim" || s === "s" || s === "1" || s === "true" || s === "yes") return "sim";
   return "nao";
+}
+
+
+function normalizeEditavel_(v) {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (s === "nao" || s === "não" || s === "n" || s === "0" || s === "false" || s === "no") return "nao";
+  return "sim";
+}
+
+
+function competenciaFromValue_(v) {
+  if (v instanceof Date) {
+    return v.getFullYear() + "-" + String(v.getMonth() + 1).padStart(2, "0");
+  }
+  const s = String(v || "").trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{4})-(\d{2})/);
+  if (m) return m[1] + "-" + m[2];
+  return s;
+}
+
+
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error("Sistema ocupado, tente novamente.");
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 
@@ -1319,7 +1370,9 @@ function toISODate_(v) {
     const dd = String(v.getDate()).padStart(2, "0");
     return yyyy + "-" + mm + "-" + dd;
   }
-  return String(v || "").trim();
+  const s = String(v || "").trim();
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : s;
 }
 
 
