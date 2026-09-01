@@ -108,7 +108,7 @@ function tarifaRowHtml(t, i) {
       <input class="field__input" placeholder="Nome" data-k="nome" value="${FisamAPI.escapeHtml(t.nome || "")}">
       <input class="field__input" placeholder="Valor" data-k="valor" inputmode="decimal" value="${t.valor ?? ""}">
       <input class="field__input" placeholder="Custo" data-k="custo" inputmode="decimal" value="${t.custo ?? ""}">
-      <label class="pago-check"><input type="checkbox" data-k="editavel" ${t.editavel === true || t.editavel === "true" || t.editavel === "1" ? "checked" : ""}><span>Editável</span></label>
+      <label class="pago-check"><input type="checkbox" data-k="editavel" ${FisamAPI.isEditavel(t.editavel) ? "checked" : ""}><span>Editável</span></label>
       <button type="button" class="btn btn--primary btn--sm" data-save-tarifa="${i}">Salvar</button>
     </div>
   `;
@@ -142,7 +142,7 @@ async function saveTarifaRow(index) {
   const data = { id: t.id, licitacao_id: state.tarifasLicId };
   row.querySelectorAll("[data-k]").forEach((el) => {
     const k = el.getAttribute("data-k");
-    if (k === "editavel") data[k] = el.checked ? "true" : "false";
+    if (k === "editavel") data[k] = el.checked ? "sim" : "nao";
     else data[k] = el.value.trim();
   });
   data.valor = FisamAPI.parseMoney(data.valor);
@@ -202,7 +202,7 @@ els.btnAddTarifa.addEventListener("click", async () => {
       licitacao_id: state.tarifasLicId,
       codigo: "nova",
       nome: "Nova tarifa",
-      editavel: "true",
+      editavel: "sim",
     });
     await renderTarifasEditor();
   } catch (err) {
