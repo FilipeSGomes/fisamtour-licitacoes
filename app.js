@@ -8,7 +8,8 @@ const els = {
   year: $("#year"), instagram: $("#linkInstagram"), whatsapp: $("#linkWhatsApp"),
   alert: $("#alert"), competencia: $("#competencia"), q: $("#q"), status: $("#status"),
   btnRefresh: $("#btnRefresh"), btnNew: $("#btnNew"), btnExport: $("#btnExport"), btnCloseMonth: $("#btnCloseMonth"), btnReopenMonth: $("#btnReopenMonth"),
-  tbody: $("#tbody"), countInfo: $("#countInfo"),
+  tbody: $("#tbody"), countInfo: $("#countInfo"), pager: $("#pager"),
+  origem: $("#origem"), tipoValor: $("#tipoValor"),
   sumReceitas: $("#sumReceitas"), sumDespesas: $("#sumDespesas"), sumSaldo: $("#sumSaldo"),
   modal: $("#modal"), confirm: $("#confirm"), confirmText: $("#confirmText"), confirmOk: $("#confirmOk"),
   form: $("#form"), modalTitle: $("#modalTitle"),
@@ -23,8 +24,8 @@ const els = {
 };
 
 let state = {
-  rows: [], editingId: null, editingOrdemId: null, apiError: null,
-  licitacoes: [], tarifas: [], fornecedores: [],
+  rows: [], editingId: null, editingOrdemId: null, apiError: null, page: 1,
+  licitacoes: [], tarifas: [], fornecedores: [], totais: null,
 };
 
 function showAlert(msg, type = "warn") {
@@ -187,11 +188,47 @@ function openConfirm(text, onOk) {
 function filterRows(rows) {
   const q = els.q.value.trim().toLowerCase();
   const status = els.status.value;
+  const tipo = els.tipoValor?.value || "all";
+  const origem = els.origem?.value || "all";
   return rows.filter((r) => {
     const matchStatus = status === "all" ? true : r.status === status;
+    const matchTipo = tipo === "all" || r.tipo === tipo;
+    const matchOrigem = origem === "all"
+      || (origem === "registro" ? String(r.origem || "").startsWith("reg_") : r.origem === origem);
     const hay = [r.licitacao, r.tipo, r.categoria, r.fornecedor, r.descricao].filter(Boolean).join(" ").toLowerCase();
-    return (q ? hay.includes(q) : true) && matchStatus;
+    return (q ? hay.includes(q) : true) && matchStatus && matchTipo && matchOrigem;
   });
+}
+
+function renderPainel(painel) {
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value == null ? "—" : String(value);
+  };
+  set("metricLicitacoes", painel?.licitacoes_ativas);
+  set("metricOsAbertas", painel?.os_abertas);
+  set("metricServicos", painel?.servicos_executados);
+  const list = document.getElementById("atividadeList");
+  if (!list) return;
+  const items = painel?.atividade || [];
+  if (!items.length) {
+    list.innerHTML = `<li class="empty">Nenhuma alteração registrada.</li>`;
+    return;
+  }
+  const acao = {
+    criar: "criou", atualizar: "atualizou", inativar: "inativou", excluir: "excluiu",
+    fechar: "fechou", reabrir: "reabriu",
+  };
+  const entidade = {
+    licitacoes: "licitação", fornecedores: "fornecedor", tarifas: "tarifa",
+    passageiros: "passageiro", ordens_servico: "ordem de serviço",
+    reg_passagens: "passagem", reg_hospedagem: "hospedagem", reg_veiculo: "veículo",
+    lancamentos: "lançamento", fechamentos: "competência", users: "usuário",
+  };
+  list.innerHTML = items.map((item) => {
+    const quando = item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "";
+    return `<li><strong>${FisamAPI.escapeHtml(item.usuario || "Sistema")}</strong> ${FisamAPI.escapeHtml(acao[item.action] || item.action)} ${FisamAPI.escapeHtml(entidade[item.entity] || item.entity)} <span class="muted">${FisamAPI.escapeHtml(quando)}</span></li>`;
+  }).join("");
 }
 
 function applyTotais(totais) {
@@ -209,15 +246,24 @@ function badge(tipo) {
 function renderTable(rows) {
   const filtered = filterRows(rows);
   applyTotais(state.totais);
-  els.countInfo.textContent = `${filtered.length} itens`;
+  const pageSize = 8;
+  const view = FisamUI.slice(filtered, state.page, pageSize);
+  state.page = view.page;
+  els.countInfo.textContent = `${view.total} itens`;
+  FisamUI.renderPager(els.pager, {
+    page: view.page,
+    pages: view.pages,
+    total: view.total,
+    onPage: (page) => { state.page = page; renderTable(state.rows); },
+  });
 
-  if (!filtered.length) {
+  if (!view.total) {
     const comp = els.competencia.value || FisamAPI.monthToday();
     els.tbody.innerHTML = `<tr><td colspan="8" class="empty">${FisamAPI.escapeHtml(state.apiError ? "Erro ao carregar." : `Nenhum lançamento em ${comp}.`)}</td></tr>`;
     return;
   }
 
-  els.tbody.innerHTML = filtered.map((r) => `
+  els.tbody.innerHTML = view.items.map((r) => `
     <tr>
       <td>${FisamAPI.formatDateBR(r.data)}</td>
       <td>${FisamAPI.escapeHtml(r.licitacao)}</td>
@@ -261,11 +307,16 @@ function renderTable(rows) {
 }
 
 async function refresh() {
+  state.page = 1;
   const competencia = els.competencia.value || FisamAPI.monthToday();
   state.apiError = null;
   showAlert(null);
   try {
-    const data = await FisamAPI.listLancamentos(competencia);
+    const [data, painel] = await Promise.all([
+      FisamAPI.listLancamentos(competencia),
+      FisamAPI.fetchPainel(competencia).catch(() => null),
+    ]);
+    renderPainel(painel);
     state.rows = data.rows || [];
     state.totais = data.totais || { receitas: 0, despesas: 0, lucro: 0 };
     state.fechamento = data.fechamento || null;
@@ -328,8 +379,11 @@ function wire() {
     });
   }
 
-  els.q.addEventListener("input", () => renderTable(state.rows));
-  els.status.addEventListener("change", () => renderTable(state.rows));
+  const rerender = () => { state.page = 1; renderTable(state.rows); };
+  els.q.addEventListener("input", rerender);
+  els.status.addEventListener("change", rerender);
+  if (els.origem) els.origem.addEventListener("change", rerender);
+  if (els.tipoValor) els.tipoValor.addEventListener("change", rerender);
   els.competencia.addEventListener("change", refresh);
 
   els.f_registro_tipo.addEventListener("change", () => setFormMode(els.f_registro_tipo.value));
@@ -395,6 +449,7 @@ function wire() {
         else await FisamAPI.addLancamento(row);
       }
       closeModal();
+      showAlert("Registro salvo.", "success");
       await refresh();
     } catch (err) { alert(err.message); }
   });

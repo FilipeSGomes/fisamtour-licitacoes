@@ -396,7 +396,7 @@ test("banco vazio responde telas e API sem planilha", async () => {
 
   const root = path.resolve(__dirname, "..", "..");
   const files = [
-    "js/api.js", "app.js", "js/licitacao.js", "js/licitacoes.js", "js/fatura.js", "js/passageiros.js", "js/tunas.js",
+    "js/api.js", "js/shell.js", "js/ui.js", "app.js", "js/licitacao.js", "js/licitacoes.js", "js/fatura.js", "js/passageiros.js", "js/tunas.js", "js/usuarios.js",
     "index.html", "login.html", "licitacoes.html", "licitacao.html", "fatura.html", "passageiros.html", "tunas.html",
   ];
   for (const rel of files) {
@@ -408,6 +408,49 @@ test("banco vazio responde telas e API sem planilha", async () => {
     const source = fs.readFileSync(path.join(root, "backend", "src", name), "utf8");
     assert.doesNotMatch(source, /script\.google\.com|369\.87|481\.76/);
   }
+});
+
+test("painel vazio devolve zero e não inventa contrato", async () => {
+  await truncate();
+  const password = `senha-teste-${Date.now()}-pain`;
+  await createUser("admin@teste.local", password, "admin");
+  const cookie = cookieFrom(await api("POST", "/api/auth/login", { body: { email: "admin@teste.local", password } }));
+  const anon = await api("GET", "/api/painel?competencia=2026-09");
+  assert.equal(anon.status, 401);
+  const vazio = await api("GET", "/api/painel?competencia=2026-09", { cookie });
+  assert.equal(vazio.status, 200);
+  assert.equal(vazio.json.licitacoes_ativas, 0);
+  assert.equal(vazio.json.os_abertas, 0);
+  assert.equal(vazio.json.servicos_executados, 0);
+  assert.equal(vazio.json.razao.receitas, 0);
+  assert.equal(vazio.json.razao.despesas, 0);
+  assert.equal(vazio.json.razao.lucro, 0);
+  assert.deepEqual(vazio.json.atividade, []);
+  assert.equal(Object.hasOwn(vazio.json, "contratos"), false);
+
+  const lic = await api("POST", "/api/licitacoes", { cookie, body: { nome: "Painel", tipo: "passagens" } });
+  await api("POST", "/api/ordens", {
+    cookie,
+    body: {
+      competencia: "2026-09", data: "2026-09-02", licitacao_id: lic.json.licitacao.id,
+      descricao: "Aberta", valor: "10.00", custo: "0", status_os: "aberta",
+    },
+  });
+  await api("POST", "/api/ordens", {
+    cookie,
+    body: {
+      competencia: "2026-09", data: "2026-09-03", licitacao_id: lic.json.licitacao.id,
+      descricao: "Feita", valor: "8.00", custo: "1.00", status_os: "concluida",
+    },
+  });
+  const cheio = await api("GET", "/api/painel?competencia=2026-09", { cookie });
+  assert.equal(cheio.json.licitacoes_ativas, 1);
+  assert.equal(cheio.json.os_abertas, 1);
+  assert.equal(cheio.json.servicos_executados, 1);
+  assert.equal(cheio.json.razao.receitas, 18);
+  assert.equal(cheio.json.razao.despesas, 1);
+  assert.ok(cheio.json.atividade.length >= 1);
+  assert.equal(JSON.stringify(cheio.json.atividade).toLowerCase().includes("password"), false);
 });
 
 test("CPF não aparece em auditoria, erro ou log", async () => {

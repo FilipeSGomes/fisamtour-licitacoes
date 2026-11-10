@@ -106,6 +106,65 @@ function register(app, { requireAuth, requirePerm }) {
     res.json({ ok: true, licitacoes: lic.rows, fornecedores: forn.rows });
   }));
 
+  app.get("/api/painel", ...auth, wrap(async (req, res) => {
+    const competencia = String(req.query.competencia || "").trim();
+    const perms = new Set(req.user.permissions || []);
+    const out = {
+      ok: true,
+      competencia: competenciaValida(competencia) ? competencia : null,
+      licitacoes_ativas: null,
+      os_abertas: null,
+      servicos_executados: null,
+      razao: null,
+      atividade: [],
+    };
+    if (perms.has("catalogo.read")) {
+      const lic = await query("select count(*)::int as n from licitacoes where status = 'ativo'");
+      out.licitacoes_ativas = lic.rows[0].n;
+    }
+    if (perms.has("operacao.read")) {
+      const os = await query(
+        `select
+           count(*) filter (where status_os = 'aberta')::int as abertas,
+           count(*) filter (where status_os in ('concluida', 'faturada'))::int as executados
+         from ordens_servico
+         where ativo`
+      );
+      out.os_abertas = os.rows[0].abertas;
+      out.servicos_executados = os.rows[0].executados;
+    }
+    if (perms.has("financeiro.read") && out.competencia) {
+      const sums = await query(
+        `select
+           coalesce(sum(valor) filter (where tipo = 'receita'), 0) as receitas,
+           coalesce(sum(valor) filter (where tipo = 'despesa'), 0) as despesas
+         from lancamentos where competencia = $1`,
+        [out.competencia]
+      );
+      const fech = await query("select * from fechamentos where competencia = $1", [out.competencia]);
+      out.razao = {
+        ...mapTotais(sums.rows[0]),
+        fechamento: fech.rows[0] ? mapFechamento(fech.rows[0]) : null,
+      };
+    }
+    if (perms.has("catalogo.read") || perms.has("operacao.read") || perms.has("financeiro.read")) {
+      const logs = await query(
+        `select a.entity, a.action, a.created_at, u.nome as usuario
+         from audit_logs a
+         left join users u on u.id = a.user_id
+         order by a.created_at desc
+         limit 8`
+      );
+      out.atividade = logs.rows.map((row) => ({
+        entity: row.entity,
+        action: row.action,
+        created_at: row.created_at,
+        usuario: row.usuario || "Sistema",
+      }));
+    }
+    res.json(out);
+  }));
+
   app.get("/api/licitacoes", ...auth, requirePerm("catalogo.read"), wrap(async (req, res) => {
     const include = String(req.query.include_inativas || "") === "1";
     const resRows = await query(

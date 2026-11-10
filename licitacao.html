@@ -9,35 +9,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
-  <header class="header">
-    <div class="container header__inner">
-      <div class="brand">
-        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
-        <div class="brand__text">
-          <div class="brand__name">FISAM TOUR</div>
-          <div class="brand__tag" id="pageTag">Detalhe da licitação</div>
-        </div>
+<body data-nav="licitacoes">
+  <div class="workspace">
+    <header class="topbar">
+      <button class="btn btn--outline nav-toggle" type="button" data-nav-toggle>Menu</button>
+      <div class="topbar__title">
+        <h1 class="title" id="pageTag">Detalhe da licitação</h1>
+        <p class="muted">Linhas operacionais. Os cards usam o razão.</p>
       </div>
-      <nav class="nav">
-        <a class="nav__link" href="./index.html">Dashboard</a>
-        <a class="nav__link" href="./licitacoes.html">Licitações</a>
-        <a class="nav__link" href="./passageiros.html">Passageiros</a>
-        <a class="nav__link" href="./tunas.html">TUNAS</a>
-      </nav>
-      <div class="header__actions">
+      <div class="topbar__actions">
         <button class="btn btn--outline" id="btnAdd">Nova linha</button>
         <button class="btn btn--outline" id="btnSave">Atualizar</button>
       </div>
-    </div>
-  </header>
-
-  <main class="container">
+    </header>
     <div class="alert" id="alert" hidden></div>
     <section class="panel">
-      <div class="panel__head panel__head--filters">
-        <div class="field field--inline">
-          <label class="field__label">Filtrar pagamento</label>
+      <div class="filters">
+        <div class="field">
+          <label class="field__label" for="q">Buscar</label>
+          <input class="field__input" id="q" type="search" placeholder="Trecho, placa, hóspede" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="filterPago">Pagamento</label>
           <select class="field__input" id="filterPago">
             <option value="all">Todos</option>
             <option value="sim">Pagos</option>
@@ -53,11 +46,12 @@
           <tfoot id="tfoot"></tfoot>
         </table>
       </div>
+      <div class="pager" id="pager"></div>
     </section>
     <footer class="footer">
       <div><a class="link" href="./licitacoes.html">← Voltar às licitações</a></div>
     </footer>
-  </main>
+  </div>
 
   <div class="modal" id="modal" aria-hidden="true">
     <div class="modal__backdrop" data-close="1"></div>
@@ -78,6 +72,8 @@
 
   <datalist id="passageirosList"></datalist>
 
+  <script src="./js/shell.js"></script>
+  <script src="./js/ui.js"></script>
   <script src="./js/api.js"></script>
   <script src="./js/licitacao.js"></script>
 </body>

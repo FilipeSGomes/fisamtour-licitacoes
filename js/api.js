@@ -137,6 +137,11 @@ const FisamAPI = (() => {
     return apiGet(`/lancamentos?competencia=${encodeURIComponent(competencia)}`);
   }
 
+  async function fetchPainel(competencia) {
+    const q = competencia ? `?competencia=${encodeURIComponent(competencia)}` : "";
+    return apiGet(`/painel${q}`);
+  }
+
   async function fetchOptions() {
     const json = await apiGet("/opcoes");
     return { licitacoes: json.licitacoes || [], fornecedores: json.fornecedores || [] };
@@ -288,28 +293,27 @@ const FisamAPI = (() => {
     })[tipo] || tipo;
   }
 
-  function ensureSessionUi() {
-    const actions = document.querySelector(".header__actions") || document.querySelector(".nav");
-    if (!actions || document.getElementById("btnLogout")) return;
-    const users = document.createElement("a");
-    users.className = "nav__link";
-    users.href = "./usuarios.html";
-    users.textContent = "Usuários";
+  function ensureSessionUi(user) {
+    const slot = document.querySelector("[data-session]");
+    if (!slot || document.getElementById("btnLogout")) return;
+    slot.innerHTML = "";
+    const who = document.createElement("p");
+    who.className = "sidebar__who";
+    who.textContent = user?.nome || "Sessão ativa";
     const out = document.createElement("button");
     out.type = "button";
-    out.className = "btn btn--ghost";
+    out.className = "btn btn--ghost sidebar__logout";
     out.id = "btnLogout";
     out.textContent = "Sair";
     out.addEventListener("click", () => logout().catch((err) => alert(err.message)));
-    actions.appendChild(users);
-    actions.appendChild(out);
+    slot.append(who, out);
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
     if (isLoginPage()) return;
     try {
-      await apiGet("/auth/me");
-      ensureSessionUi();
+      const me = await apiGet("/auth/me");
+      ensureSessionUi(me.user);
     } catch (err) {
       if (err.status === 401) location.href = "./login.html";
     }
@@ -318,7 +322,7 @@ const FisamAPI = (() => {
   return {
     CONFIG, brl, parseMoney, monthToday, escapeHtml, formatDateBR, isPago,
     isEditavel, isOrdemOrigem, login, logout,
-    listLancamentos, fetchOptions, listLicitacoes, fetchTarifas,
+    listLancamentos, fetchPainel, fetchOptions, listLicitacoes, fetchTarifas,
     listOrdens, fetchFaturaElegiveis, getRegistros, createRegistro, updateRegistro,
     updateRegistroPago, deleteRegistro, saveOrdem, deleteOrdem, saveLicitacao,
     saveFornecedor, saveTarifa, faturarOrdens, searchPassageiros, listPassageiros, savePassageiro,

@@ -72,6 +72,8 @@ const els = {
   tfoot: $("#tfoot"),
   totals: $("#totals"),
   filterPago: $("#filterPago"),
+  q: $("#q"),
+  pager: $("#pager"),
   modal: $("#modal"),
   modalTitle: $("#modalTitle"),
   form: $("#form"),
@@ -91,6 +93,7 @@ let state = {
   totais: { receitas: 0, despesas: 0, lucro: 0 },
   editIndex: null,
   pagoFilter: "all",
+  page: 1,
 };
 
 function showAlert(msg, type = "warn") {
@@ -109,9 +112,16 @@ function normalizePago(v) {
 }
 
 function filteredItems() {
-  if (state.pagoFilter === "all") return state.items;
-  if (state.pagoFilter === "sim") return state.items.filter((i) => FisamAPI.isPago(i.pago));
-  return state.items.filter((i) => !FisamAPI.isPago(i.pago));
+  const q = (els.q?.value || "").trim().toLowerCase();
+  return state.items.filter((item) => {
+    const pagoOk = state.pagoFilter === "all"
+      || (state.pagoFilter === "sim" ? FisamAPI.isPago(item.pago) : !FisamAPI.isPago(item.pago));
+    if (!pagoOk) return false;
+    if (!q) return true;
+    const nome = state.passageiros.find((p) => String(p.id) === String(item.passageiro_id))?.nome || "";
+    const hay = [item.de, item.para, item.bilhete, item.placa, item.colaborador, nome].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  });
 }
 
 function recalcLucro(item) {
@@ -170,6 +180,15 @@ function cellValue(item, key) {
 
 function renderTable() {
   const items = filteredItems();
+  const view = FisamUI.slice(items, state.page, 8);
+  state.page = view.page;
+  FisamUI.renderPager(els.pager, {
+    page: view.page,
+    pages: view.pages,
+    total: view.total,
+    onPage: (page) => { state.page = page; renderTable(); },
+  });
+  const pageItems = view.items;
   const keys = state.displayKeys;
   els.thead.innerHTML = `<tr>${keys.map((k) => {
     const f = state.fields.find((x) => x.key === k);
@@ -179,7 +198,7 @@ function renderTable() {
   if (!items.length) {
     els.tbody.innerHTML = `<tr><td colspan="${keys.length + 1}" class="empty">Nenhum registro.</td></tr>`;
   } else {
-    els.tbody.innerHTML = items.map((item) => {
+    els.tbody.innerHTML = pageItems.map((item) => {
       const idx = state.items.indexOf(item);
       return `
       <tr>
@@ -357,9 +376,14 @@ els.btnSave.addEventListener("click", () => load());
 if (els.filterPago) {
   els.filterPago.addEventListener("change", () => {
     state.pagoFilter = els.filterPago.value;
+    state.page = 1;
     renderTable();
   });
 }
+els.q?.addEventListener("input", () => {
+  state.page = 1;
+  renderTable();
+});
 
 els.form.addEventListener("submit", async (e) => {
   e.preventDefault();

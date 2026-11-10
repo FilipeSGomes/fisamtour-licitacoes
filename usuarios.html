@@ -6,24 +6,15 @@
   <title>FISAM Tour | Usuários</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
-  <header class="header">
-    <div class="container header__inner">
-      <div class="brand">
-        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
-        <div class="brand__text">
-          <div class="brand__name">FISAM TOUR</div>
-          <div class="brand__tag">Usuários</div>
-        </div>
+<body data-nav="usuarios">
+  <div class="workspace">
+    <header class="topbar">
+      <button class="btn btn--outline nav-toggle" type="button" data-nav-toggle>Menu</button>
+      <div class="topbar__title">
+        <h1 class="title">Usuários</h1>
+        <p class="muted">Acesso administrativo. A senha nova precisa de 10 caracteres.</p>
       </div>
-      <nav class="nav">
-        <a class="nav__link" href="./index.html">Dashboard</a>
-        <a class="nav__link" href="./licitacoes.html">Licitações</a>
-        <a class="nav__link" href="./passageiros.html">Passageiros</a>
-      </nav>
-    </div>
-  </header>
-  <main class="container">
+    </header>
     <div class="alert" id="alert" hidden></div>
     <section class="panel">
       <form id="form" class="grid2" style="padding:16px">
@@ -37,7 +28,7 @@
         </div>
         <div class="field">
           <label class="field__label" for="password">Senha</label>
-          <input class="field__input" id="password" type="password" autocomplete="new-password" />
+          <input class="field__input" id="password" type="password" autocomplete="new-password" minlength="10" />
         </div>
         <div class="field">
           <label class="field__label" for="status">Status</label>
@@ -50,14 +41,31 @@
           <button class="btn btn--primary" type="submit">Salvar usuário</button>
         </div>
       </form>
+      <div class="filters">
+        <div class="field">
+          <label class="field__label" for="q">Buscar</label>
+          <input class="field__input" id="q" type="search" placeholder="Nome ou e-mail" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="filtroStatus">Status</label>
+          <select class="field__input" id="filtroStatus">
+            <option value="all">Todos</option>
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+      </div>
       <div class="table-wrap">
         <table class="table">
           <thead><tr><th>Nome</th><th>E-mail</th><th>Status</th><th></th></tr></thead>
-          <tbody id="tbody"></tbody>
+          <tbody id="tbody"><tr><td colspan="4" class="empty">Carregando…</td></tr></tbody>
         </table>
       </div>
+      <div class="pager" id="pager"></div>
     </section>
-  </main>
+  </div>
+  <script src="./js/shell.js"></script>
+  <script src="./js/ui.js"></script>
   <script src="./js/api.js"></script>
   <script src="./js/usuarios.js"></script>
 </body>

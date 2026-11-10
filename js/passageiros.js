@@ -2,9 +2,12 @@ const $ = (s) => document.querySelector(s);
 const els = {
   alert: $("#alert"), q: $("#q"), tbody: $("#tbody"), count: $("#count"),
   form: $("#form"), nome: $("#nome"), dataNasc: $("#data_nasc"), cpf: $("#cpf"),
+  pager: $("#pager"),
 };
 let timer = null;
 let editingId = null;
+let page = 1;
+let current = [];
 
 function showAlert(msg, type = "warn") {
   if (!msg) { els.alert.hidden = true; return; }
@@ -14,12 +17,21 @@ function showAlert(msg, type = "warn") {
 }
 
 function render(list) {
-  els.count.textContent = `${list.length} itens`;
-  if (!list.length) {
+  current = list;
+  const view = FisamUI.slice(list, page, 8);
+  page = view.page;
+  els.count.textContent = `${view.total} itens`;
+  FisamUI.renderPager(els.pager, {
+    page: view.page,
+    pages: view.pages,
+    total: view.total,
+    onPage: (next) => { page = next; render(current); },
+  });
+  if (!view.total) {
     els.tbody.innerHTML = `<tr><td colspan="4" class="empty">Nenhum passageiro encontrado.</td></tr>`;
     return;
   }
-  els.tbody.innerHTML = list.map((p) => `
+  els.tbody.innerHTML = view.items.map((p) => `
     <tr>
       <td>${FisamAPI.escapeHtml(p.nome)}</td>
       <td>${FisamAPI.formatDateBR(p.data_nasc)}</td>
@@ -29,7 +41,7 @@ function render(list) {
   `).join("");
   els.tbody.querySelectorAll("[data-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const item = list.find((row) => row.id === btn.getAttribute("data-id"));
+      const item = current.find((row) => row.id === btn.getAttribute("data-id"));
       if (!item) return;
       editingId = item.id;
       els.nome.value = item.nome || "";
@@ -41,6 +53,8 @@ function render(list) {
 
 async function search() {
   const q = els.q.value.trim();
+  page = 1;
+  els.tbody.innerHTML = `<tr><td colspan="4" class="empty">Carregando…</td></tr>`;
   try {
     const list = q ? await FisamAPI.searchPassageiros(q) : await FisamAPI.listPassageiros();
     render(list);
@@ -57,6 +71,11 @@ els.q.addEventListener("input", () => {
 
 els.form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const digits = els.cpf.value.replace(/\D/g, "");
+  if (digits && digits.length !== 11) {
+    FisamUI.showFieldError(els.cpf, "O CPF precisa ter 11 dígitos.");
+    return;
+  }
   try {
     await FisamAPI.savePassageiro({
       id: editingId || undefined,
