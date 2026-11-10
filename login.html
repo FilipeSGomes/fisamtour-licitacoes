@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FISAM Tour | Entrar</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header__inner">
+      <div class="brand">
+        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
+        <div class="brand__text">
+          <div class="brand__name">FISAM TOUR</div>
+          <div class="brand__tag">Acesso ao ponto</div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <div class="alert" id="alert" hidden></div>
+    <section class="panel">
+      <div class="panel__head">
+        <h1 class="title">Entrar</h1>
+      </div>
+      <form id="form" class="grid2" style="padding:16px">
+        <div class="field">
+          <label class="field__label" for="email">E-mail</label>
+          <input class="field__input" id="email" type="email" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label class="field__label" for="password">Senha</label>
+          <input class="field__input" id="password" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="modal__actions">
+          <button class="btn btn--primary" type="submit">Entrar</button>
+        </div>
+      </form>
+    </section>
+  </main>
+  <script src="./js/api.js"></script>
+  <script>
+    const alertEl = document.getElementById("alert");
+    document.getElementById("form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      alertEl.hidden = true;
+      try {
+        await FisamAPI.login(document.getElementById("email").value.trim(), document.getElementById("password").value);
+        location.href = "./index.html";
+      } catch (err) {
+        alertEl.hidden = false;
+        alertEl.className = "alert alert--error";
+        alertEl.textContent = err.message || "Não foi possível entrar";
+      }
+    });
+  </script>
+</body>
+</html>

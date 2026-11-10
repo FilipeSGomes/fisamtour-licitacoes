@@ -1,7 +1,18 @@
-// Servidor local para desenvolvimento: `node local-server.js` (não usado na Vercel,
-// que importa api/index.js diretamente como função serverless).
-require("dotenv").config();
-const app = require("./api/index.js");
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-const port = process.env.PORT || 3001;
-app.listen(port, () => console.log(`API local em http://localhost:${port}`));
+const app = require("./src/app");
+const { ensureAdmin } = require("./src/bootstrap");
+
+const port = Number(process.env.PORT || 3001);
+
+ensureAdmin()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Ponto FISAM em http://127.0.0.1:${port}`);
+    });
+  })
+  .catch((err) => {
+    console.error(err.message);
+    process.exit(1);
+  });

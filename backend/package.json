@@ -2,12 +2,12 @@
   "name": "fisamtour-licitacoes-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Backend leve (Vercel serverless + Supabase/Postgres) para o Portal de Licitações FISAMTOUR, substituindo o Google Apps Script.",
-  "main": "api/index.js",
+  "description": "Monólito do Ponto FISAM Tour: API, sessão e PostgreSQL local.",
+  "main": "src/app.js",
   "scripts": {
     "dev": "node local-server.js",
-    "migrate:schema": "psql \"$DATABASE_URL\" -f migrations/schema.sql",
-    "migrate:csv": "node scripts/migrate-csv.js"
+    "migrate": "node scripts/migrate.js",
+    "test": "node --test --test-concurrency=1 test/fundacao.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

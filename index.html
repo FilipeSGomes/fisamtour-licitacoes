@@ -60,14 +60,13 @@
           <select class="field__input" id="status">
             <option value="all">Todos</option>
             <option value="em_andamento">Em andamento</option>
-            <option value="ganho">Ganho</option>
-            <option value="perdido">Perdido</option>
           </select>
         </div>
 
         <div class="panel__right">
           <button class="btn btn--outline" id="btnRefresh">Atualizar</button>
           <button class="btn btn--primary" id="btnCloseMonth">Fechar mês</button>
+          <button class="btn btn--outline" id="btnReopenMonth" hidden>Reabrir mês</button>
         </div>
       </div>
 
@@ -76,19 +75,19 @@
         <div class="summary__card">
           <div class="summary__label">Receitas</div>
           <div class="summary__value" id="sumReceitas">R$ 0,00</div>
-          <div class="summary__hint">Total da competência</div>
+          <div class="summary__hint">Razão da competência</div>
         </div>
 
         <div class="summary__card">
           <div class="summary__label">Despesas</div>
           <div class="summary__value" id="sumDespesas">R$ 0,00</div>
-          <div class="summary__hint">Total da competência</div>
+          <div class="summary__hint">Razão da competência</div>
         </div>
 
         <div class="summary__card summary__card--strong">
           <div class="summary__label">Saldo</div>
           <div class="summary__value" id="sumSaldo">R$ 0,00</div>
-          <div class="summary__hint">Receitas − Despesas</div>
+          <div class="summary__hint">Receita − despesa do razão</div>
         </div>
       </div>
     </section>
@@ -170,6 +169,7 @@
             <select class="field__input" id="f_status_os">
               <option value="aberta">Aberta</option>
               <option value="concluida">Concluída</option>
+              <option value="faturada">Faturada</option>
             </select>
           </div>
 
@@ -185,8 +185,6 @@
             <label class="field__label">Status</label>
             <select class="field__input" id="f_status">
               <option value="em_andamento">Em andamento</option>
-              <option value="ganho">Ganho</option>
-              <option value="perdido">Perdido</option>
             </select>
           </div>
 
@@ -221,6 +219,11 @@
           <div class="field" id="wrap_lucro">
             <label class="field__label">Lucro (R$)</label>
             <input class="field__input" id="f_lucro" readonly tabindex="-1">
+          </div>
+
+          <div class="field" id="wrap_pago">
+            <label class="field__label">Pago ao fornecedor</label>
+            <label class="pago-check"><input type="checkbox" id="f_pago"><span>Pago</span></label>
           </div>
 
           <div class="field">

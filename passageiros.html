@@ -31,10 +31,27 @@
   <main class="container">
     <div class="alert" id="alert" hidden></div>
     <section class="panel">
+      <form id="form" class="grid2" style="padding:16px">
+        <div class="field">
+          <label class="field__label" for="nome">Nome</label>
+          <input class="field__input" id="nome" required />
+        </div>
+        <div class="field">
+          <label class="field__label" for="data_nasc">Data de nascimento</label>
+          <input class="field__input" id="data_nasc" type="date" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="cpf">CPF</label>
+          <input class="field__input" id="cpf" inputmode="numeric" autocomplete="off" />
+        </div>
+        <div class="modal__actions">
+          <button class="btn btn--primary" type="submit" id="btnSave">Salvar passageiro</button>
+        </div>
+      </form>
       <div class="panel__row panel__row--simple">
         <div class="field">
-          <label class="field__label">Buscar nome ou CPF</label>
-          <input class="field__input" type="search" id="q" placeholder="Digite para buscar…" />
+          <label class="field__label">Buscar nome</label>
+          <input class="field__input" type="search" id="q" placeholder="Nome do passageiro" />
         </div>
       </div>
       <div class="panel__head">
@@ -44,7 +61,7 @@
       <div class="table-wrap">
         <table class="table">
           <thead>
-            <tr><th>Nome</th><th>Data nasc.</th><th>CPF</th></tr>
+            <tr><th>Nome</th><th>Data nasc.</th><th>CPF</th><th></th></tr>
           </thead>
           <tbody id="tbody"></tbody>
         </table>
