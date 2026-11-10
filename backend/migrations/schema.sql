@@ -1,3 +1,4 @@
+-- OBSOLETO. Não aplicar. A fundação usa backend/migrations/0001_*.sql via `npm run migrate`.
 -- FISAMTOUR Licitações — schema Postgres (Supabase)
 -- Substitui a planilha Google Sheets usada pelo appScript/codigo.gs.
 -- Rodar uma vez no SQL editor do Supabase (ou via `psql "$DATABASE_URL" -f migrations/schema.sql`).
