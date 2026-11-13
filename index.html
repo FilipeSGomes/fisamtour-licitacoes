@@ -13,82 +13,94 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 
-<body>
-  <header class="header">
-    <div class="container header__inner">
-      <div class="brand">
-        <!-- Troque por sua logo -->
-        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
-        <div class="brand__text">
-          <div class="brand__name">FISAM TOUR</div>
-          <div class="brand__tag">Painel de Licitações • Fechamento Mensal</div>
-        </div>
+<body data-nav="dashboard">
+  <div class="workspace">
+    <header class="topbar">
+      <button class="btn btn--outline nav-toggle" type="button" data-nav-toggle>Menu</button>
+      <div class="topbar__title">
+        <h1 class="title">Dashboard</h1>
+        <p class="muted">Competência, razão e ordens de serviço</p>
       </div>
-
-      <nav class="nav">
-        <a class="nav__link nav__link--active" href="./index.html">Dashboard</a>
-        <a class="nav__link" href="./licitacoes.html">Licitações</a>
-        <a class="nav__link" href="./passageiros.html">Passageiros</a>
-        <a class="nav__link" href="./tunas.html">TUNAS</a>
-      </nav>
-
-      <div class="header__actions">
+      <div class="topbar__actions">
         <button class="btn btn--ghost" id="btnExport">Exportar CSV</button>
         <button class="btn btn--primary" id="btnNew">Nova ordem de serviço</button>
       </div>
-    </div>
-  </header>
+    </header>
 
-  <main class="container">
     <div class="alert" id="alert" hidden></div>
 
-    <!-- Top controls -->
+    <section class="metric-grid" id="metricGrid" aria-live="polite">
+      <article class="metric">
+        <p class="metric__label">Licitações ativas</p>
+        <p class="metric__value" id="metricLicitacoes">—</p>
+        <p class="metric__hint">Cadastro com status ativo</p>
+      </article>
+      <article class="metric">
+        <p class="metric__label">OS abertas</p>
+        <p class="metric__value" id="metricOsAbertas">—</p>
+        <p class="metric__hint">Ordens ativas ainda não concluídas</p>
+      </article>
+      <article class="metric">
+        <p class="metric__label">Serviços executados</p>
+        <p class="metric__value" id="metricServicos">—</p>
+        <p class="metric__hint">OS concluídas ou faturadas</p>
+      </article>
+      <article class="metric">
+        <p class="metric__label">Receita do razão</p>
+        <p class="metric__value" id="sumReceitas">R$ 0,00</p>
+        <p class="metric__hint">Competência selecionada</p>
+      </article>
+      <article class="metric">
+        <p class="metric__label">Despesa do razão</p>
+        <p class="metric__value" id="sumDespesas">R$ 0,00</p>
+        <p class="metric__hint">Custo lançado na competência</p>
+      </article>
+      <article class="metric">
+        <p class="metric__label">Lucro</p>
+        <p class="metric__value" id="sumSaldo">R$ 0,00</p>
+        <p class="metric__hint">Receita − despesa</p>
+      </article>
+    </section>
+    <p class="hint metric-note">O razão não separa previsto, recebido e pendente. Pago é um ato da ordem ou do registro, distinto do faturamento e do fechamento.</p>
+
     <section class="panel">
-      <div class="panel__row">
+      <div class="filters">
         <div class="field">
-          <label class="field__label">Competência</label>
+          <label class="field__label" for="competencia">Competência</label>
           <input class="field__input" type="month" id="competencia" />
         </div>
-
         <div class="field">
-          <label class="field__label">Buscar</label>
-          <input class="field__input" type="search" id="q" placeholder="Ex.: pregão, órgão, fornecedor, destino..." />
+          <label class="field__label" for="q">Buscar</label>
+          <input class="field__input" type="search" id="q" placeholder="Licitação, fornecedor, descrição" />
         </div>
-
         <div class="field">
-          <label class="field__label">Status</label>
+          <label class="field__label" for="status">Status</label>
           <select class="field__input" id="status">
             <option value="all">Todos</option>
             <option value="em_andamento">Em andamento</option>
-            <option value="ganho">Ganho</option>
-            <option value="perdido">Perdido</option>
           </select>
         </div>
-
+        <div class="field">
+          <label class="field__label" for="tipoValor">Tipo</label>
+          <select class="field__input" id="tipoValor">
+            <option value="all">Receita e despesa</option>
+            <option value="receita">Receita</option>
+            <option value="despesa">Despesa</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="origem">Origem</label>
+          <select class="field__input" id="origem">
+            <option value="all">Todas</option>
+            <option value="ordem_servico">Ordem de serviço</option>
+            <option value="registro">Registro operacional</option>
+            <option value="manual">Lançamento manual</option>
+          </select>
+        </div>
         <div class="panel__right">
           <button class="btn btn--outline" id="btnRefresh">Atualizar</button>
           <button class="btn btn--primary" id="btnCloseMonth">Fechar mês</button>
-        </div>
-      </div>
-
-      <!-- Summary cards -->
-      <div class="summary">
-        <div class="summary__card">
-          <div class="summary__label">Receitas</div>
-          <div class="summary__value" id="sumReceitas">R$ 0,00</div>
-          <div class="summary__hint">Total da competência</div>
-        </div>
-
-        <div class="summary__card">
-          <div class="summary__label">Despesas</div>
-          <div class="summary__value" id="sumDespesas">R$ 0,00</div>
-          <div class="summary__hint">Total da competência</div>
-        </div>
-
-        <div class="summary__card summary__card--strong">
-          <div class="summary__label">Saldo</div>
-          <div class="summary__value" id="sumSaldo">R$ 0,00</div>
-          <div class="summary__hint">Receitas − Despesas</div>
+          <button class="btn btn--outline" id="btnReopenMonth" hidden>Reabrir mês</button>
         </div>
       </div>
     </section>
@@ -115,10 +127,20 @@
             </tr>
           </thead>
           <tbody id="tbody">
-            <!-- preenchido via JS -->
+            <tr><td colspan="8" class="empty">Carregando lançamentos…</td></tr>
           </tbody>
         </table>
       </div>
+      <div class="pager" id="pager"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel__head">
+        <h2 class="title">Atividade recente</h2>
+      </div>
+      <ul class="activity" id="atividadeList">
+        <li class="empty">Carregando…</li>
+      </ul>
     </section>
 
     <footer class="footer">
@@ -128,7 +150,7 @@
         <a href="#" id="linkWhatsApp" target="_blank" rel="noopener">WhatsApp</a>
       </div>
     </footer>
-  </main>
+  </div>
 
   <!-- Modal: Novo/Editar -->
   <div class="modal" id="modal" aria-hidden="true">
@@ -170,6 +192,7 @@
             <select class="field__input" id="f_status_os">
               <option value="aberta">Aberta</option>
               <option value="concluida">Concluída</option>
+              <option value="faturada">Faturada</option>
             </select>
           </div>
 
@@ -185,8 +208,6 @@
             <label class="field__label">Status</label>
             <select class="field__input" id="f_status">
               <option value="em_andamento">Em andamento</option>
-              <option value="ganho">Ganho</option>
-              <option value="perdido">Perdido</option>
             </select>
           </div>
 
@@ -221,6 +242,11 @@
           <div class="field" id="wrap_lucro">
             <label class="field__label">Lucro (R$)</label>
             <input class="field__input" id="f_lucro" readonly tabindex="-1">
+          </div>
+
+          <div class="field" id="wrap_pago">
+            <label class="field__label">Pago ao fornecedor</label>
+            <label class="pago-check"><input type="checkbox" id="f_pago"><span>Pago</span></label>
           </div>
 
           <div class="field">
@@ -274,6 +300,8 @@
     </div>
   </div>
 
+  <script src="./js/shell.js"></script>
+  <script src="./js/ui.js"></script>
   <script src="./js/api.js"></script>
   <script src="./app.js"></script>
 </body>

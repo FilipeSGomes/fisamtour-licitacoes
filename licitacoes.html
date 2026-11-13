@@ -9,34 +9,48 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
-  <header class="header">
-    <div class="container header__inner">
-      <div class="brand">
-        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
-        <div class="brand__text">
-          <div class="brand__name">FISAM TOUR</div>
-          <div class="brand__tag">Licitações • Administração</div>
-        </div>
+<body data-nav="licitacoes">
+  <div class="workspace">
+    <header class="topbar">
+      <button class="btn btn--outline nav-toggle" type="button" data-nav-toggle>Menu</button>
+      <div class="topbar__title">
+        <h1 class="title">Licitações</h1>
+        <p class="muted">Cadastro, tarifas e atalho da fatura</p>
       </div>
-      <nav class="nav">
-        <a class="nav__link" href="./index.html">Dashboard</a>
-        <a class="nav__link nav__link--active" href="./licitacoes.html">Licitações</a>
-        <a class="nav__link" href="./passageiros.html">Passageiros</a>
-        <a class="nav__link" href="./tunas.html">TUNAS</a>
-      </nav>
-      <div class="header__actions">
+      <div class="topbar__actions">
         <button class="btn btn--outline" id="btnRefresh">Atualizar</button>
         <button class="btn btn--primary" id="btnNewLic">Nova licitação</button>
       </div>
-    </div>
-  </header>
-
-  <main class="container">
+    </header>
     <div class="alert" id="alert" hidden></div>
     <section class="panel">
+      <div class="filters">
+        <div class="field">
+          <label class="field__label" for="q">Buscar</label>
+          <input class="field__input" id="q" type="search" placeholder="Nome da licitação" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="filtroTipo">Tipo</label>
+          <select class="field__input" id="filtroTipo">
+            <option value="all">Todos</option>
+            <option value="passagens">Passagens</option>
+            <option value="hospedagem">Hospedagem</option>
+            <option value="veiculo">Veículo</option>
+            <option value="calculadora">Calculadora</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="filtroStatus">Status</label>
+          <select class="field__input" id="filtroStatus">
+            <option value="all">Todos</option>
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+      </div>
       <div class="panel__head">
-        <h1 class="title">Licitações</h1>
+        <h2 class="title">Lista</h2>
+        <div class="muted" id="countInfo">0 itens</div>
       </div>
       <div class="table-wrap">
         <table class="table table--admin">
@@ -54,11 +68,12 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
+      <div class="pager" id="pager"></div>
     </section>
     <footer class="footer">
       <div>© <span id="year"></span> FISAM Tour • Controle interno</div>
     </footer>
-  </main>
+  </div>
 
   <div class="modal" id="modalLic" aria-hidden="true">
     <div class="modal__backdrop" data-close="1"></div>
@@ -135,6 +150,8 @@
     </div>
   </div>
 
+  <script src="./js/shell.js"></script>
+  <script src="./js/ui.js"></script>
   <script src="./js/api.js"></script>
   <script src="./js/licitacoes.js"></script>
 </body>

@@ -18,9 +18,7 @@ const FIELDS = {
     { key: "assento", label: "Assento" },
     { key: "bilhete", label: "Bilhete" },
     { key: "classe", label: "Classe" },
-    { key: "colaborador", label: "Colaborador", list: "passageirosList" },
-    { key: "cpf", label: "CPF", list: "passageirosList" },
-    { key: "dt_nasc", label: "Dt nasc.", type: "date" },
+    { key: "passageiro_id", label: "Passageiro", type: "passageiro" },
     { key: "valor", label: "Valor", type: "number" },
     { key: "custo", label: "Custo", type: "number" },
     { key: "lucro", label: "Lucro", type: "number" },
@@ -31,7 +29,7 @@ const FIELDS = {
     { key: "check_in", label: "Check-in", type: "date" },
     { key: "check_out", label: "Check-out", type: "date" },
     { key: "diarias", label: "Diárias", type: "number" },
-    { key: "colaborador", label: "Colaborador" },
+    { key: "passageiro_id", label: "Passageiro", type: "passageiro" },
     { key: "refeicoes", label: "Refeições", type: "number" },
     { key: "vlr_diaria", label: "Vlr diária", type: "number" },
     { key: "prev_vlr_refeicao", label: "Prev. refeição", type: "number" },
@@ -50,9 +48,7 @@ const FIELDS = {
     { key: "placa", label: "Placa" },
     { key: "saida", label: "Saída" },
     { key: "data", label: "Data", type: "date" },
-    { key: "colaborador", label: "Colaborador" },
-    { key: "cpf", label: "CPF" },
-    { key: "dt_nascimento", label: "Dt nasc.", type: "date" },
+    { key: "passageiro_id", label: "Passageiro", type: "passageiro" },
     { key: "valor", label: "Valor", type: "number" },
     { key: "custo", label: "Custo", type: "number" },
     { key: "lucro", label: "Lucro", type: "number" },
@@ -76,6 +72,8 @@ const els = {
   tfoot: $("#tfoot"),
   totals: $("#totals"),
   filterPago: $("#filterPago"),
+  q: $("#q"),
+  pager: $("#pager"),
   modal: $("#modal"),
   modalTitle: $("#modalTitle"),
   form: $("#form"),
@@ -91,8 +89,11 @@ let state = {
   fields: [],
   displayKeys: [],
   items: [],
+  passageiros: [],
+  totais: { receitas: 0, despesas: 0, lucro: 0 },
   editIndex: null,
   pagoFilter: "all",
+  page: 1,
 };
 
 function showAlert(msg, type = "warn") {
@@ -111,9 +112,16 @@ function normalizePago(v) {
 }
 
 function filteredItems() {
-  if (state.pagoFilter === "all") return state.items;
-  if (state.pagoFilter === "sim") return state.items.filter((i) => FisamAPI.isPago(i.pago));
-  return state.items.filter((i) => !FisamAPI.isPago(i.pago));
+  const q = (els.q?.value || "").trim().toLowerCase();
+  return state.items.filter((item) => {
+    const pagoOk = state.pagoFilter === "all"
+      || (state.pagoFilter === "sim" ? FisamAPI.isPago(item.pago) : !FisamAPI.isPago(item.pago));
+    if (!pagoOk) return false;
+    if (!q) return true;
+    const nome = state.passageiros.find((p) => String(p.id) === String(item.passageiro_id))?.nome || "";
+    const hay = [item.de, item.para, item.bilhete, item.placa, item.colaborador, nome].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  });
 }
 
 function recalcLucro(item) {
@@ -131,10 +139,11 @@ function recalcLucro(item) {
 }
 
 function renderTotals(totais) {
+  const t = totais || { receitas: 0, despesas: 0, lucro: 0 };
   els.totals.innerHTML = `
-    <div class="summary__card"><div class="summary__label">Receitas</div><div class="summary__value">${FisamAPI.brl(totais.receitas)}</div></div>
-    <div class="summary__card"><div class="summary__label">Despesas</div><div class="summary__value">${FisamAPI.brl(totais.despesas)}</div></div>
-    <div class="summary__card summary__card--strong"><div class="summary__label">Lucro</div><div class="summary__value">${FisamAPI.brl(totais.lucro)}</div></div>
+    <div class="summary__card"><div class="summary__label">Receitas</div><div class="summary__value">${FisamAPI.brl(t.receitas)}</div><div class="summary__hint">Razão</div></div>
+    <div class="summary__card"><div class="summary__label">Despesas</div><div class="summary__value">${FisamAPI.brl(t.despesas)}</div><div class="summary__hint">Razão</div></div>
+    <div class="summary__card summary__card--strong"><div class="summary__label">Lucro</div><div class="summary__value">${FisamAPI.brl(t.lucro)}</div><div class="summary__hint">Receita − despesa</div></div>
   `;
 }
 
@@ -171,6 +180,15 @@ function cellValue(item, key) {
 
 function renderTable() {
   const items = filteredItems();
+  const view = FisamUI.slice(items, state.page, 8);
+  state.page = view.page;
+  FisamUI.renderPager(els.pager, {
+    page: view.page,
+    pages: view.pages,
+    total: view.total,
+    onPage: (page) => { state.page = page; renderTable(); },
+  });
+  const pageItems = view.items;
   const keys = state.displayKeys;
   els.thead.innerHTML = `<tr>${keys.map((k) => {
     const f = state.fields.find((x) => x.key === k);
@@ -180,7 +198,7 @@ function renderTable() {
   if (!items.length) {
     els.tbody.innerHTML = `<tr><td colspan="${keys.length + 1}" class="empty">Nenhum registro.</td></tr>`;
   } else {
-    els.tbody.innerHTML = items.map((item) => {
+    els.tbody.innerHTML = pageItems.map((item) => {
       const idx = state.items.indexOf(item);
       return `
       <tr>
@@ -210,7 +228,7 @@ function renderTable() {
     <td></td>
   </tr>`;
 
-  renderTotals(foot);
+  renderTotals(state.totais);
 
   els.tbody.querySelectorAll("[data-edit]").forEach((b) => {
     b.addEventListener("click", () => openEditor(Number(b.getAttribute("data-edit"))));
@@ -249,8 +267,7 @@ async function deleteItem(index) {
   if (!confirm("Excluir este registro?")) return;
   try {
     if (item.id) await FisamAPI.deleteRegistro(licitacaoId, item.id);
-    state.items.splice(index, 1);
-    renderTable();
+    await load();
     showAlert("Registro excluído.", "success");
     setTimeout(() => showAlert(null), 2500);
   } catch (err) {
@@ -261,6 +278,17 @@ async function deleteItem(index) {
 function buildFormFields(item = {}) {
   els.formFields.innerHTML = state.fields.map((f) => {
     const val = item[f.key] ?? "";
+    if (f.type === "passageiro") {
+      const opts = state.passageiros.map((p) =>
+        `<option value="${FisamAPI.escapeHtml(p.id)}" ${String(item.passageiro_id) === String(p.id) ? "selected" : ""}>${FisamAPI.escapeHtml(p.nome)}</option>`
+      ).join("");
+      return `
+        <div class="field">
+          <label class="field__label">${FisamAPI.escapeHtml(f.label)}</label>
+          <select class="field__input" name="passageiro_id"><option value="">Selecione…</option>${opts}</select>
+        </div>
+      `;
+    }
     if (f.type === "pago") {
       const checked = FisamAPI.isPago(val) ? "checked" : "";
       return `
@@ -298,25 +326,25 @@ function readFormItem() {
     const input = els.form.querySelector(`[name="${f.key}"]`);
     if (f.type === "pago") {
       item[f.key] = input?.checked ? "sim" : "nao";
+    } else if (f.type === "passageiro") {
+      item.passageiro_id = input?.value || null;
     } else if (f.type === "number") {
       item[f.key] = input ? FisamAPI.parseMoney(input.value) : 0;
     } else {
       item[f.key] = input ? input.value.trim() : "";
     }
   }
-  item.id = existing.id || item.id || ("pg-" + Date.now());
+  if (existing.id) item.id = existing.id;
   item.status = existing.status || "ativo";
   return recalcLucro(item);
 }
 
 async function loadPassageirosDatalist() {
-  if (state.tipo !== "passagens") return;
   try {
-    const list = await FisamAPI.searchPassageiros("");
-    els.passageirosList.innerHTML = list.map((p) =>
-      `<option value="${FisamAPI.escapeHtml(p.nome)}" label="${FisamAPI.escapeHtml(p.cpf)}">`
-    ).join("");
-  } catch (_) { /* opcional */ }
+    state.passageiros = await FisamAPI.searchPassageiros("");
+  } catch (_) {
+    state.passageiros = [];
+  }
 }
 
 async function load() {
@@ -332,44 +360,38 @@ async function load() {
     state.fields = FIELDS[state.tipo] || [];
     state.displayKeys = DISPLAY[state.tipo] || state.fields.map((f) => f.key).slice(0, 6);
     state.items = (data.items || []).map(recalcLucro);
+    state.totais = data.totais || { receitas: 0, despesas: 0, lucro: 0 };
     document.title = `FISAM Tour | ${data.licitacao.nome}`;
     els.pageTag.textContent = `${data.licitacao.nome} • ${FisamAPI.tipoLabel(state.tipo)}`;
-    renderTable();
     await loadPassageirosDatalist();
+    renderTable();
   } catch (err) {
     showAlert(`Erro: ${err.message}`, "error");
   }
 }
 
 els.btnAdd.addEventListener("click", () => openEditor(null));
-els.btnSave.addEventListener("click", async () => {
-  try {
-    showAlert("Salvando…", "info");
-    await FisamAPI.saveRegistros(licitacaoId, state.items);
-    showAlert("Salvo e dashboard sincronizado.", "success");
-    setTimeout(() => showAlert(null), 3000);
-    await load();
-  } catch (err) {
-    showAlert(`Erro ao salvar: ${err.message}`, "error");
-  }
-});
+els.btnSave.addEventListener("click", () => load());
 
 if (els.filterPago) {
   els.filterPago.addEventListener("change", () => {
     state.pagoFilter = els.filterPago.value;
+    state.page = 1;
     renderTable();
   });
 }
+els.q?.addEventListener("input", () => {
+  state.page = 1;
+  renderTable();
+});
 
 els.form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const item = readFormItem();
-  if (state.editIndex === null) state.items.push(item);
-  else state.items[state.editIndex] = { ...state.items[state.editIndex], ...item };
   els.modal.setAttribute("aria-hidden", "true");
-  renderTable();
   try {
-    await FisamAPI.saveRegistros(licitacaoId, state.items);
+    if (item.id) await FisamAPI.updateRegistro(licitacaoId, item.id, item);
+    else await FisamAPI.createRegistro(licitacaoId, item);
     await load();
     showAlert("Registro salvo.", "success");
     setTimeout(() => showAlert(null), 2500);

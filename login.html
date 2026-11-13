@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FISAM Tour | Entrar</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="login-screen">
+    <aside class="login-aside">
+      <div>
+        <img src="./logo.png" alt="FISAM Tour" class="sidebar__logo" />
+        <h1>FISAM TOUR</h1>
+        <p>Painel operacional de licitações, ordens e razão.</p>
+      </div>
+      <p>O acesso é individual. A sessão fica no cookie do navegador.</p>
+    </aside>
+    <main class="login-main">
+      <div class="login-card">
+        <div class="alert" id="alert" hidden></div>
+        <section class="panel">
+          <div class="panel__head">
+            <h1 class="title">Entrar</h1>
+          </div>
+          <form id="form" class="grid2">
+            <div class="field grid2__full">
+              <label class="field__label" for="email">E-mail</label>
+              <input class="field__input" id="email" type="email" autocomplete="username" required />
+            </div>
+            <div class="field grid2__full">
+              <label class="field__label" for="password">Senha</label>
+              <input class="field__input" id="password" type="password" autocomplete="current-password" required />
+            </div>
+            <div class="modal__actions grid2__full">
+              <button class="btn btn--primary" type="submit">Entrar</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="./js/ui.js"></script>
+  <script src="./js/api.js"></script>
+  <script>
+    const alertEl = document.getElementById("alert");
+    document.getElementById("form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      alertEl.hidden = true;
+      try {
+        await FisamAPI.login(document.getElementById("email").value.trim(), document.getElementById("password").value);
+        location.href = "./index.html";
+      } catch (err) {
+        alertEl.hidden = false;
+        alertEl.className = "alert alert--error";
+        alertEl.textContent = err.message || "Não foi possível entrar";
+      }
+    });
+  </script>
+</body>
+</html>

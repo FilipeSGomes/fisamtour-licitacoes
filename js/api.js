@@ -1,16 +1,16 @@
 /**
- * FISAM Tour — cliente da API (Google Apps Script)
+ * FISAM Tour — cliente da API local (sessão em cookie httpOnly).
+ * Não chama Google Apps Script nem Google Sheets.
  */
 const FisamAPI = (() => {
   const CONFIG = {
     INSTAGRAM_URL: "https://instagram.com/fisamtour",
     WHATSAPP_URL: "https://wa.me/5511910218890",
-    // Produção atual: Google Apps Script. Após o deploy Vercel (backend/README.md),
-    // troque só esta URL (ex: https://<projeto>.vercel.app/api).
-    API_URL: "https://script.google.com/macros/s/AKfycbwcakddghwC4hQrfO7spmNHk-O4CEwZMYf227v_rNqwVFPXBnAbpCTMhy1EdPC2X_Sd/exec",
-    API_TOKEN: "fisam-licitacoes-2025-secreto",
-    USE_MOCK: false,
   };
+
+  function isLoginPage() {
+    return /\/login\.html$/.test(location.pathname);
+  }
 
   function brl(n) {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
@@ -61,8 +61,7 @@ const FisamAPI = (() => {
   }
 
   function isOrdemOrigem(v) {
-    const s = String(v ?? "").trim().toLowerCase();
-    return s === "ordem_servico" || s === "ordens_servico";
+    return String(v ?? "").trim().toLowerCase() === "ordem_servico";
   }
 
   let pendingRequests = 0;
@@ -91,143 +90,174 @@ const FisamAPI = (() => {
     loadingEl.setAttribute("aria-hidden", active ? "false" : "true");
   }
 
-  function beginRequest() {
+  async function request(method, path, body) {
     ensureLoadingIndicator();
     pendingRequests += 1;
     updateLoadingIndicator();
-  }
-
-  function endRequest() {
-    pendingRequests = Math.max(0, pendingRequests - 1);
-    updateLoadingIndicator();
-  }
-
-  async function trackRequest(fn) {
-    beginRequest();
     try {
-      return await fn();
+      const res = await fetch(`/api${path}`, {
+        method,
+        credentials: "include",
+        headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      if (res.status === 401 && !isLoginPage()) {
+        location.href = "./login.html";
+        return new Promise(() => {});
+      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.ok === false) {
+        const err = new Error(json.error || `Erro HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      return json;
     } finally {
-      endRequest();
+      pendingRequests = Math.max(0, pendingRequests - 1);
+      updateLoadingIndicator();
     }
   }
 
-  async function apiGet(params) {
-    if (CONFIG.USE_MOCK || !CONFIG.API_URL) throw new Error("API desativada");
-    return trackRequest(async () => {
-      const qs = new URLSearchParams({ ...params, token: CONFIG.API_TOKEN });
-      const res = await fetch(`${CONFIG.API_URL}?${qs}`);
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.ok) throw new Error(json.error || `Erro HTTP ${res.status}`);
-      return json;
-    });
+  const apiGet = (path) => request("GET", path);
+  const apiPost = (path, body) => request("POST", path, body ?? {});
+  const apiPut = (path, body) => request("PUT", path, body ?? {});
+  const apiPatch = (path, body) => request("PATCH", path, body ?? {});
+  const apiDelete = (path) => request("DELETE", path);
+
+  async function login(email, password) {
+    return apiPost("/auth/login", { email, password });
   }
 
-  async function apiPost(body) {
-    if (CONFIG.USE_MOCK || !CONFIG.API_URL) throw new Error("API desativada");
-    return trackRequest(async () => {
-      const res = await fetch(CONFIG.API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ ...body, token: CONFIG.API_TOKEN }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.ok) throw new Error(json.error || `Erro HTTP ${res.status}`);
-      return json;
-    });
+  async function logout() {
+    await apiPost("/auth/logout", {});
+    location.href = "./login.html";
   }
 
   async function listLancamentos(competencia) {
-    return (await apiGet({ op: "list", competencia })).rows || [];
+    return apiGet(`/lancamentos?competencia=${encodeURIComponent(competencia)}`);
+  }
+
+  async function fetchPainel(competencia) {
+    const q = competencia ? `?competencia=${encodeURIComponent(competencia)}` : "";
+    return apiGet(`/painel${q}`);
   }
 
   async function fetchOptions() {
-    const json = await apiGet({ op: "options" });
+    const json = await apiGet("/opcoes");
     return { licitacoes: json.licitacoes || [], fornecedores: json.fornecedores || [] };
   }
 
   async function listLicitacoes(includeInativas = false) {
-    const params = { op: "licitacoes" };
-    if (includeInativas) params.include_inativas = "1";
-    return (await apiGet(params)).licitacoes || [];
+    const q = includeInativas ? "?include_inativas=1" : "";
+    return (await apiGet(`/licitacoes${q}`)).licitacoes || [];
   }
 
   async function fetchTarifas(licitacaoId) {
-    return (await apiGet({ op: "tarifas", licitacao_id: licitacaoId })).tarifas || [];
+    return (await apiGet(`/licitacoes/${encodeURIComponent(licitacaoId)}/tarifas`)).tarifas || [];
   }
 
   async function listOrdens(competencia, licitacaoId) {
-    const params = { op: "ordens" };
-    if (competencia) params.competencia = competencia;
-    if (licitacaoId) params.licitacao_id = licitacaoId;
-    return (await apiGet(params)).ordens || [];
+    const params = new URLSearchParams();
+    if (competencia) params.set("competencia", competencia);
+    if (licitacaoId) params.set("licitacao_id", licitacaoId);
+    const q = params.toString();
+    return (await apiGet(`/ordens${q ? `?${q}` : ""}`)).ordens || [];
   }
 
   async function fetchFaturaElegiveis(competencia, licitacaoId) {
-    return apiGet({ op: "fatura", competencia, licitacao_id: licitacaoId });
-  }
-
-  async function faturaPreview(ids) {
-    return apiGet({ op: "faturaPreview", ids: ids.join(",") });
+    const params = new URLSearchParams({ competencia, licitacao_id: licitacaoId });
+    return apiGet(`/fatura?${params}`);
   }
 
   async function getRegistros(id) {
-    return apiGet({ op: "registros", id });
+    return apiGet(`/licitacoes/${encodeURIComponent(id)}/registros`);
   }
 
-  async function saveRegistros(licitacaoId, items) {
-    return apiPost({ op: "saveRegistros", licitacao_id: licitacaoId, items });
+  async function createRegistro(licitacaoId, item) {
+    return apiPost(`/licitacoes/${encodeURIComponent(licitacaoId)}/registros`, item);
+  }
+
+  async function updateRegistro(licitacaoId, id, item) {
+    return apiPut(`/licitacoes/${encodeURIComponent(licitacaoId)}/registros/${encodeURIComponent(id)}`, item);
   }
 
   async function updateRegistroPago(licitacaoId, id, pago) {
-    return apiPost({ op: "updateRegistroPago", licitacao_id: licitacaoId, id, pago });
+    return apiPatch(`/licitacoes/${encodeURIComponent(licitacaoId)}/registros/${encodeURIComponent(id)}/pago`, { pago });
   }
 
   async function deleteRegistro(licitacaoId, id) {
-    return apiPost({ op: "deleteRegistro", licitacao_id: licitacaoId, id });
+    return apiDelete(`/licitacoes/${encodeURIComponent(licitacaoId)}/registros/${encodeURIComponent(id)}`);
   }
 
   async function saveOrdem(ordem) {
-    return apiPost({ op: "saveOrdem", ordem });
+    if (ordem?.id) return apiPut(`/ordens/${encodeURIComponent(ordem.id)}`, ordem);
+    return apiPost("/ordens", ordem);
   }
 
   async function deleteOrdem(id) {
-    return apiPost({ op: "deleteOrdem", id });
+    return apiDelete(`/ordens/${encodeURIComponent(id)}`);
   }
 
   async function saveLicitacao(licitacao) {
-    return apiPost({ op: "saveLicitacao", licitacao });
+    if (licitacao?.id) return apiPut(`/licitacoes/${encodeURIComponent(licitacao.id)}`, licitacao);
+    return apiPost("/licitacoes", licitacao);
   }
 
   async function saveFornecedor(fornecedor) {
-    return apiPost({ op: "saveFornecedor", fornecedor });
+    if (fornecedor?.id) return apiPut(`/fornecedores/${encodeURIComponent(fornecedor.id)}`, fornecedor);
+    return apiPost("/fornecedores", fornecedor);
   }
 
   async function saveTarifa(tarifa) {
-    return apiPost({ op: "saveTarifa", tarifa });
+    if (tarifa?.id) return apiPut(`/tarifas/${encodeURIComponent(tarifa.id)}`, tarifa);
+    return apiPost("/tarifas", tarifa);
   }
 
   async function faturarOrdens(ids) {
-    return apiPost({ op: "faturarOrdens", ids });
+    return apiPost("/ordens/faturar", { ids });
   }
 
   async function searchPassageiros(q) {
-    return (await apiGet({ op: "passageiros", q: q || "" })).passageiros || [];
+    if (!q) return (await apiGet("/passageiros/opcoes")).passageiros || [];
+    return (await apiPost("/passageiros/busca", { q })).passageiros || [];
+  }
+
+  async function listPassageiros() {
+    return (await apiGet("/passageiros")).passageiros || [];
+  }
+
+  async function savePassageiro(passageiro) {
+    if (passageiro?.id) return apiPut(`/passageiros/${encodeURIComponent(passageiro.id)}`, passageiro);
+    return apiPost("/passageiros", passageiro);
+  }
+
+  async function listUsuarios() {
+    return (await apiGet("/usuarios")).usuarios || [];
+  }
+
+  async function saveUsuario(usuario) {
+    if (usuario?.id) return apiPut(`/usuarios/${encodeURIComponent(usuario.id)}`, usuario);
+    return apiPost("/usuarios", usuario);
   }
 
   async function addLancamento(row) {
-    return apiPost({ op: "add", row });
+    return apiPost("/lancamentos", row);
   }
 
   async function updateLancamento(row) {
-    return apiPost({ op: "update", row });
+    return apiPut(`/lancamentos/${encodeURIComponent(row.id)}`, row);
   }
 
   async function deleteLancamento(id) {
-    return apiPost({ op: "delete", id });
+    return apiDelete(`/lancamentos/${encodeURIComponent(id)}`);
   }
 
   async function closeMonth(competencia) {
-    return apiPost({ op: "closeMonth", competencia });
+    return apiPost(`/competencias/${encodeURIComponent(competencia)}/fechar`, {});
+  }
+
+  async function reopenMonth(competencia) {
+    return apiPost(`/competencias/${encodeURIComponent(competencia)}/reabrir`, {});
   }
 
   function attachModalClose(modalEl) {
@@ -263,14 +293,41 @@ const FisamAPI = (() => {
     })[tipo] || tipo;
   }
 
+  function ensureSessionUi(user) {
+    const slot = document.querySelector("[data-session]");
+    if (!slot || document.getElementById("btnLogout")) return;
+    slot.innerHTML = "";
+    const who = document.createElement("p");
+    who.className = "sidebar__who";
+    who.textContent = user?.nome || "Sessão ativa";
+    const out = document.createElement("button");
+    out.type = "button";
+    out.className = "btn btn--ghost sidebar__logout";
+    out.id = "btnLogout";
+    out.textContent = "Sair";
+    out.addEventListener("click", () => logout().catch((err) => alert(err.message)));
+    slot.append(who, out);
+  }
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    if (isLoginPage()) return;
+    try {
+      const me = await apiGet("/auth/me");
+      ensureSessionUi(me.user);
+    } catch (err) {
+      if (err.status === 401) location.href = "./login.html";
+    }
+  });
+
   return {
     CONFIG, brl, parseMoney, monthToday, escapeHtml, formatDateBR, isPago,
-    isEditavel, isOrdemOrigem,
-    apiGet, apiPost, listLancamentos, fetchOptions, listLicitacoes, fetchTarifas,
-    listOrdens, fetchFaturaElegiveis, faturaPreview, getRegistros, saveRegistros,
+    isEditavel, isOrdemOrigem, login, logout,
+    listLancamentos, fetchPainel, fetchOptions, listLicitacoes, fetchTarifas,
+    listOrdens, fetchFaturaElegiveis, getRegistros, createRegistro, updateRegistro,
     updateRegistroPago, deleteRegistro, saveOrdem, deleteOrdem, saveLicitacao,
-    saveFornecedor, saveTarifa, faturarOrdens, searchPassageiros,
-    addLancamento, updateLancamento, deleteLancamento, closeMonth,
+    saveFornecedor, saveTarifa, faturarOrdens, searchPassageiros, listPassageiros, savePassageiro,
+    listUsuarios, saveUsuario,
+    addLancamento, updateLancamento, deleteLancamento, closeMonth, reopenMonth,
     attachModalClose, fillSelect, tipoLabel,
   };
 })();

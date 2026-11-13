@@ -3,6 +3,11 @@ const $ = (s) => document.querySelector(s);
 const els = {
   alert: $("#alert"),
   tbody: $("#tbody"),
+  q: $("#q"),
+  filtroTipo: $("#filtroTipo"),
+  filtroStatus: $("#filtroStatus"),
+  countInfo: $("#countInfo"),
+  pager: $("#pager"),
   btnRefresh: $("#btnRefresh"),
   btnNewLic: $("#btnNewLic"),
   year: $("#year"),
@@ -21,7 +26,7 @@ const els = {
   f_fatura_comp: $("#f_fatura_comp"),
 };
 
-let state = { licitacoes: [], editingId: null, tarifasLicId: null, faturaLicId: null };
+let state = { licitacoes: [], editingId: null, tarifasLicId: null, faturaLicId: null, page: 1 };
 
 function showAlert(msg, type = "warn") {
   if (!msg) { els.alert.hidden = true; return; }
@@ -41,13 +46,35 @@ function statusBadge(status) {
   return `<span class="${cls}">${FisamAPI.escapeHtml(s)}</span>`;
 }
 
+function visibleLicitacoes() {
+  const q = (els.q?.value || "").trim().toLowerCase();
+  const tipo = els.filtroTipo?.value || "all";
+  const status = els.filtroStatus?.value || "all";
+  return state.licitacoes.filter((lic) => {
+    const matchQ = !q || String(lic.nome || "").toLowerCase().includes(q);
+    const matchTipo = tipo === "all" || lic.tipo === tipo;
+    const matchStatus = status === "all" || lic.status === status;
+    return matchQ && matchTipo && matchStatus;
+  });
+}
+
 function renderTable() {
-  if (!state.licitacoes.length) {
-    els.tbody.innerHTML = `<tr><td colspan="7" class="empty">Nenhuma licitação cadastrada.</td></tr>`;
+  const filtered = visibleLicitacoes();
+  const view = FisamUI.slice(filtered, state.page, 8);
+  state.page = view.page;
+  if (els.countInfo) els.countInfo.textContent = `${view.total} itens`;
+  FisamUI.renderPager(els.pager, {
+    page: view.page,
+    pages: view.pages,
+    total: view.total,
+    onPage: (page) => { state.page = page; renderTable(); },
+  });
+  if (!view.total) {
+    els.tbody.innerHTML = `<tr><td colspan="7" class="empty">${state.licitacoes.length ? "Nenhuma licitação com esses filtros." : "Nenhuma licitação cadastrada."}</td></tr>`;
     return;
   }
 
-  els.tbody.innerHTML = state.licitacoes.map((lic) => `
+  els.tbody.innerHTML = view.items.map((lic) => `
     <tr class="${String(lic.status).toLowerCase() === "inativo" ? "row--muted" : ""}">
       <td><strong>${FisamAPI.escapeHtml(lic.nome)}</strong></td>
       <td>${FisamAPI.escapeHtml(FisamAPI.tipoLabel(lic.tipo))}</td>
@@ -178,6 +205,10 @@ async function load() {
 els.year.textContent = String(new Date().getFullYear());
 els.btnRefresh.addEventListener("click", load);
 els.btnNewLic.addEventListener("click", () => openLicModal(null));
+const refinar = () => { state.page = 1; renderTable(); };
+els.q?.addEventListener("input", refinar);
+els.filtroTipo?.addEventListener("change", refinar);
+els.filtroStatus?.addEventListener("change", refinar);
 
 els.formLic.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -188,8 +219,10 @@ els.formLic.addEventListener("submit", async (e) => {
       tipo: els.f_lic_tipo.value,
       status: els.f_lic_status.value,
     });
+    const eraEdicao = Boolean(state.editingId);
     els.modalLic.setAttribute("aria-hidden", "true");
     await load();
+    showAlert(eraEdicao ? "Licitação atualizada." : "Licitação salva.", "success");
   } catch (err) {
     showAlert(err.message, "error");
   }

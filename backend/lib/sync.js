@@ -1,3 +1,4 @@
+throw new Error("sync.js saiu do caminho operacional: o razão não é mais apagado e recriado.");
 const { pool } = require("./db");
 const { toNumber, competenciaFromDate, newId } = require("./helpers");
 

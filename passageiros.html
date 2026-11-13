@@ -9,32 +9,38 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
-  <header class="header">
-    <div class="container header__inner">
-      <div class="brand">
-        <img src="./logo.png" alt="FISAM Tour" class="brand__logo" />
-        <div class="brand__text">
-          <div class="brand__name">FISAM TOUR</div>
-          <div class="brand__tag">Cadastro de passageiros</div>
-        </div>
+<body data-nav="passageiros">
+  <div class="workspace">
+    <header class="topbar">
+      <button class="btn btn--outline nav-toggle" type="button" data-nav-toggle>Menu</button>
+      <div class="topbar__title">
+        <h1 class="title">Passageiros</h1>
+        <p class="muted">A pessoa é cadastrada uma vez e referenciada na linha operacional</p>
       </div>
-      <nav class="nav">
-        <a class="nav__link" href="./index.html">Dashboard</a>
-        <a class="nav__link" href="./licitacoes.html">Licitações</a>
-        <a class="nav__link nav__link--active" href="./passageiros.html">Passageiros</a>
-        <a class="nav__link" href="./tunas.html">TUNAS</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="container">
+    </header>
     <div class="alert" id="alert" hidden></div>
     <section class="panel">
+      <form id="form" class="grid2" style="padding:16px">
+        <div class="field">
+          <label class="field__label" for="nome">Nome</label>
+          <input class="field__input" id="nome" required />
+        </div>
+        <div class="field">
+          <label class="field__label" for="data_nasc">Data de nascimento</label>
+          <input class="field__input" id="data_nasc" type="date" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="cpf">CPF</label>
+          <input class="field__input" id="cpf" inputmode="numeric" autocomplete="off" />
+        </div>
+        <div class="modal__actions">
+          <button class="btn btn--primary" type="submit" id="btnSave">Salvar passageiro</button>
+        </div>
+      </form>
       <div class="panel__row panel__row--simple">
         <div class="field">
-          <label class="field__label">Buscar nome ou CPF</label>
-          <input class="field__input" type="search" id="q" placeholder="Digite para buscar…" />
+          <label class="field__label">Buscar nome</label>
+          <input class="field__input" type="search" id="q" placeholder="Nome do passageiro" />
         </div>
       </div>
       <div class="panel__head">
@@ -44,14 +50,17 @@
       <div class="table-wrap">
         <table class="table">
           <thead>
-            <tr><th>Nome</th><th>Data nasc.</th><th>CPF</th></tr>
+            <tr><th>Nome</th><th>Data nasc.</th><th>CPF</th><th></th></tr>
           </thead>
-          <tbody id="tbody"></tbody>
+          <tbody id="tbody"><tr><td colspan="4" class="empty">Carregando…</td></tr></tbody>
         </table>
       </div>
+      <div class="pager" id="pager"></div>
     </section>
-  </main>
+  </div>
 
+  <script src="./js/shell.js"></script>
+  <script src="./js/ui.js"></script>
   <script src="./js/api.js"></script>
   <script src="./js/passageiros.js"></script>
 </body>

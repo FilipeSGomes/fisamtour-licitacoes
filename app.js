@@ -7,24 +7,25 @@ const $ = (s) => document.querySelector(s);
 const els = {
   year: $("#year"), instagram: $("#linkInstagram"), whatsapp: $("#linkWhatsApp"),
   alert: $("#alert"), competencia: $("#competencia"), q: $("#q"), status: $("#status"),
-  btnRefresh: $("#btnRefresh"), btnNew: $("#btnNew"), btnExport: $("#btnExport"), btnCloseMonth: $("#btnCloseMonth"),
-  tbody: $("#tbody"), countInfo: $("#countInfo"),
+  btnRefresh: $("#btnRefresh"), btnNew: $("#btnNew"), btnExport: $("#btnExport"), btnCloseMonth: $("#btnCloseMonth"), btnReopenMonth: $("#btnReopenMonth"),
+  tbody: $("#tbody"), countInfo: $("#countInfo"), pager: $("#pager"),
+  origem: $("#origem"), tipoValor: $("#tipoValor"),
   sumReceitas: $("#sumReceitas"), sumDespesas: $("#sumDespesas"), sumSaldo: $("#sumSaldo"),
   modal: $("#modal"), confirm: $("#confirm"), confirmText: $("#confirmText"), confirmOk: $("#confirmOk"),
   form: $("#form"), modalTitle: $("#modalTitle"),
   f_registro_tipo: $("#f_registro_tipo"), f_data: $("#f_data"), f_licitacao: $("#f_licitacao"),
   f_tarifa: $("#f_tarifa"), f_status_os: $("#f_status_os"), f_tipo: $("#f_tipo"), f_status: $("#f_status"),
   f_categoria: $("#f_categoria"), f_fornecedor: $("#f_fornecedor"), f_descricao: $("#f_descricao"),
-  f_valor: $("#f_valor"), f_custo: $("#f_custo"), f_lucro: $("#f_lucro"), f_comprovante: $("#f_comprovante"),
+  f_valor: $("#f_valor"), f_custo: $("#f_custo"), f_lucro: $("#f_lucro"), f_pago: $("#f_pago"), f_comprovante: $("#f_comprovante"),
   btnAddFornecedor: $("#btnAddFornecedor"), modalForn: $("#modalForn"), formForn: $("#formForn"), f_forn_nome: $("#f_forn_nome"),
   wrap_tarifa: $("#wrap_tarifa"), wrap_status_os: $("#wrap_status_os"),
   wrap_tipo_manual: $("#wrap_tipo_manual"), wrap_status_manual: $("#wrap_status_manual"),
-  wrap_categoria: $("#wrap_categoria"), wrap_custo: $("#wrap_custo"), wrap_lucro: $("#wrap_lucro"),
+  wrap_categoria: $("#wrap_categoria"), wrap_custo: $("#wrap_custo"), wrap_lucro: $("#wrap_lucro"), wrap_pago: $("#wrap_pago"),
 };
 
 let state = {
-  rows: [], editingId: null, editingOrdemId: null, apiError: null,
-  licitacoes: [], tarifas: [], fornecedores: [],
+  rows: [], editingId: null, editingOrdemId: null, apiError: null, page: 1,
+  licitacoes: [], tarifas: [], fornecedores: [], totais: null,
 };
 
 function showAlert(msg, type = "warn") {
@@ -47,6 +48,7 @@ function setFormMode(mode) {
   els.wrap_status_os.classList.toggle("hidden", !isOS);
   els.wrap_custo.classList.toggle("hidden", !isOS);
   els.wrap_lucro.classList.toggle("hidden", !isOS);
+  if (els.wrap_pago) els.wrap_pago.classList.toggle("hidden", !isOS);
   els.wrap_tipo_manual.classList.toggle("hidden", isOS);
   els.wrap_status_manual.classList.toggle("hidden", isOS);
   els.wrap_categoria.classList.toggle("hidden", isOS);
@@ -65,7 +67,7 @@ async function loadTarifas(licitacaoId) {
     els.f_tarifa.innerHTML = '<option value="">Selecione a tarifa…</option>';
     for (const t of state.tarifas) {
       const o = document.createElement("option");
-      o.value = t.codigo;
+      o.value = t.id;
       o.textContent = t.nome;
       o.dataset.valor = t.valor ?? "";
       o.dataset.custo = t.custo ?? "";
@@ -114,39 +116,39 @@ async function openModal(editRow = null) {
   els.form.reset();
   els.f_valor.readOnly = false;
   els.f_custo.readOnly = false;
+  if (els.f_pago) els.f_pago.checked = false;
   els.f_data.value = new Date().toISOString().slice(0, 10);
   els.f_registro_tipo.value = "ordem_servico";
   setFormMode("ordem_servico");
   FisamAPI.fillSelect(els.f_licitacao, state.licitacoes, "Selecione a licitação…", false, "id");
-  FisamAPI.fillSelect(els.f_fornecedor, state.fornecedores, "Selecione…", true);
+  FisamAPI.fillSelect(els.f_fornecedor, state.fornecedores, "Selecione…", true, "id");
 
   if (editRow) {
     els.f_data.value = String(editRow.data || "").slice(0, 10) || els.f_data.value;
     els.f_descricao.value = editRow.descricao || "";
     els.f_comprovante.value = editRow.comprovante_url || "";
-    els.f_fornecedor.value = editRow.fornecedor || "";
-    const lic = state.licitacoes.find((l) => l.nome === editRow.licitacao);
-    if (lic) {
-      els.f_licitacao.value = lic.id;
-      await loadTarifas(lic.id);
+    if (editRow.fornecedor_id) els.f_fornecedor.value = editRow.fornecedor_id;
+    const licId = editRow.licitacao_id || state.licitacoes.find((l) => l.nome === editRow.licitacao)?.id;
+    if (licId) {
+      els.f_licitacao.value = licId;
+      await loadTarifas(licId);
     }
     if (fromOS) {
       els.f_registro_tipo.value = "ordem_servico";
       setFormMode("ordem_servico");
-      els.f_tarifa.value = editRow.categoria || "";
       els.f_valor.value = moneyInput(editRow.valor);
-      els.f_custo.value = moneyInput(editRow.custo);
       if (editRow.origem_id) {
         try {
-          const ordens = await FisamAPI.listOrdens(editRow.competencia || els.competencia.value, lic?.id);
+          const ordens = await FisamAPI.listOrdens(editRow.competencia || els.competencia.value, licId);
           const os = ordens.find((o) => String(o.id) === String(editRow.origem_id));
           if (os) {
             els.f_status_os.value = os.status_os || "aberta";
-            els.f_tarifa.value = os.tarifa_codigo || els.f_tarifa.value;
+            els.f_tarifa.value = os.tarifa_id || "";
             els.f_valor.value = moneyInput(os.valor);
             els.f_custo.value = moneyInput(os.custo);
-            if (os.fornecedor) els.f_fornecedor.value = os.fornecedor;
+            if (os.fornecedor_id) els.f_fornecedor.value = os.fornecedor_id;
             if (os.descricao) els.f_descricao.value = os.descricao;
+            if (els.f_pago) els.f_pago.checked = FisamAPI.isPago(os.pago);
           }
         } catch (_) { /* usa campos do lançamento */ }
       }
@@ -186,22 +188,54 @@ function openConfirm(text, onOk) {
 function filterRows(rows) {
   const q = els.q.value.trim().toLowerCase();
   const status = els.status.value;
+  const tipo = els.tipoValor?.value || "all";
+  const origem = els.origem?.value || "all";
   return rows.filter((r) => {
     const matchStatus = status === "all" ? true : r.status === status;
+    const matchTipo = tipo === "all" || r.tipo === tipo;
+    const matchOrigem = origem === "all"
+      || (origem === "registro" ? String(r.origem || "").startsWith("reg_") : r.origem === origem);
     const hay = [r.licitacao, r.tipo, r.categoria, r.fornecedor, r.descricao].filter(Boolean).join(" ").toLowerCase();
-    return (q ? hay.includes(q) : true) && matchStatus;
+    return (q ? hay.includes(q) : true) && matchStatus && matchTipo && matchOrigem;
   });
 }
 
-function computeSummary(rows) {
-  let receitas = 0, despesas = 0;
-  for (const r of rows) {
-    if (r.tipo === "receita") receitas += r.valor;
-    else despesas += r.valor;
+function renderPainel(painel) {
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value == null ? "—" : String(value);
+  };
+  set("metricLicitacoes", painel?.licitacoes_ativas);
+  set("metricOsAbertas", painel?.os_abertas);
+  set("metricServicos", painel?.servicos_executados);
+  const list = document.getElementById("atividadeList");
+  if (!list) return;
+  const items = painel?.atividade || [];
+  if (!items.length) {
+    list.innerHTML = `<li class="empty">Nenhuma alteração registrada.</li>`;
+    return;
   }
-  els.sumReceitas.textContent = FisamAPI.brl(receitas);
-  els.sumDespesas.textContent = FisamAPI.brl(despesas);
-  els.sumSaldo.textContent = FisamAPI.brl(receitas - despesas);
+  const acao = {
+    criar: "criou", atualizar: "atualizou", inativar: "inativou", excluir: "excluiu",
+    fechar: "fechou", reabrir: "reabriu",
+  };
+  const entidade = {
+    licitacoes: "licitação", fornecedores: "fornecedor", tarifas: "tarifa",
+    passageiros: "passageiro", ordens_servico: "ordem de serviço",
+    reg_passagens: "passagem", reg_hospedagem: "hospedagem", reg_veiculo: "veículo",
+    lancamentos: "lançamento", fechamentos: "competência", users: "usuário",
+  };
+  list.innerHTML = items.map((item) => {
+    const quando = item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "";
+    return `<li><strong>${FisamAPI.escapeHtml(item.usuario || "Sistema")}</strong> ${FisamAPI.escapeHtml(acao[item.action] || item.action)} ${FisamAPI.escapeHtml(entidade[item.entity] || item.entity)} <span class="muted">${FisamAPI.escapeHtml(quando)}</span></li>`;
+  }).join("");
+}
+
+function applyTotais(totais) {
+  const t = totais || { receitas: 0, despesas: 0, lucro: 0 };
+  els.sumReceitas.textContent = FisamAPI.brl(t.receitas);
+  els.sumDespesas.textContent = FisamAPI.brl(t.despesas);
+  els.sumSaldo.textContent = FisamAPI.brl(t.lucro);
 }
 
 function badge(tipo) {
@@ -211,16 +245,25 @@ function badge(tipo) {
 
 function renderTable(rows) {
   const filtered = filterRows(rows);
-  computeSummary(filtered);
-  els.countInfo.textContent = `${filtered.length} itens`;
+  applyTotais(state.totais);
+  const pageSize = 8;
+  const view = FisamUI.slice(filtered, state.page, pageSize);
+  state.page = view.page;
+  els.countInfo.textContent = `${view.total} itens`;
+  FisamUI.renderPager(els.pager, {
+    page: view.page,
+    pages: view.pages,
+    total: view.total,
+    onPage: (page) => { state.page = page; renderTable(state.rows); },
+  });
 
-  if (!filtered.length) {
+  if (!view.total) {
     const comp = els.competencia.value || FisamAPI.monthToday();
     els.tbody.innerHTML = `<tr><td colspan="8" class="empty">${FisamAPI.escapeHtml(state.apiError ? "Erro ao carregar." : `Nenhum lançamento em ${comp}.`)}</td></tr>`;
     return;
   }
 
-  els.tbody.innerHTML = filtered.map((r) => `
+  els.tbody.innerHTML = view.items.map((r) => `
     <tr>
       <td>${FisamAPI.formatDateBR(r.data)}</td>
       <td>${FisamAPI.escapeHtml(r.licitacao)}</td>
@@ -248,7 +291,11 @@ function renderTable(rows) {
     b.addEventListener("click", () => {
       const row = state.rows.find((x) => x.id === b.getAttribute("data-del"));
       const fromOS = FisamAPI.isOrdemOrigem(row?.origem) && row?.origem_id;
-      openConfirm(fromOS ? "Excluir esta ordem de serviço e os lançamentos vinculados?" : "Excluir este lançamento?", async () => {
+      if (row?.origem && row.origem !== "manual" && !fromOS) {
+        alert("Este lançamento vem de um registro. Exclua o registro na licitação.");
+        return;
+      }
+      openConfirm(fromOS ? "Inativar esta ordem de serviço e retirar o razão vinculado?" : "Excluir este lançamento?", async () => {
         try {
           if (fromOS) await FisamAPI.deleteOrdem(row.origem_id);
           else await FisamAPI.deleteLancamento(b.getAttribute("data-del"));
@@ -259,54 +306,29 @@ function renderTable(rows) {
   });
 }
 
-function rowsFromOrdem(os, competencia) {
-  const st = String(os.status_os || "").toLowerCase();
-  if (st === "inativo" || st === "cancelada") return [];
-  const base = {
-    competencia: os.competencia || competencia,
-    data: os.data,
-    licitacao: os.licitacao_nome,
-    status: "em_andamento",
-    categoria: os.tarifa_codigo || "ordem",
-    fornecedor: os.fornecedor || "",
-    comprovante_url: os.comprovante_url || "",
-    custo: os.custo || 0,
-    origem: "ordem_servico",
-    origem_id: os.id,
-  };
-  const desc = os.descricao || os.tarifa_nome || "Ordem de serviço";
-  const out = [];
-  if (os.valor) {
-    out.push({ ...base, id: "os-rec-" + os.id, tipo: "receita", descricao: desc, valor: os.valor });
-  }
-  if (os.custo) {
-    out.push({ ...base, id: "os-desp-" + os.id, tipo: "despesa", descricao: "Custo: " + desc, valor: os.custo });
-  }
-  return out;
-}
-
 async function refresh() {
+  state.page = 1;
   const competencia = els.competencia.value || FisamAPI.monthToday();
   state.apiError = null;
   showAlert(null);
   try {
-    const [lancamentos, ordens] = await Promise.all([
+    const [data, painel] = await Promise.all([
       FisamAPI.listLancamentos(competencia),
-      FisamAPI.listOrdens(competencia).catch(() => []),
+      FisamAPI.fetchPainel(competencia).catch(() => null),
     ]);
-    const synced = new Set(
-      lancamentos.filter((r) => FisamAPI.isOrdemOrigem(r.origem) && r.origem_id).map((r) => String(r.origem_id))
-    );
-    const extras = [];
-    for (const os of ordens) {
-      if (synced.has(String(os.id))) continue;
-      extras.push(...rowsFromOrdem(os, competencia));
-    }
-    state.rows = lancamentos.concat(extras);
-    if (!state.rows.length) showAlert(`Nenhum lançamento em ${competencia}.`, "info");
+    renderPainel(painel);
+    state.rows = data.rows || [];
+    state.totais = data.totais || { receitas: 0, despesas: 0, lucro: 0 };
+    state.fechamento = data.fechamento || null;
+    const fechada = state.fechamento?.status === "fechada";
+    if (els.btnReopenMonth) els.btnReopenMonth.hidden = !fechada;
+    if (els.btnCloseMonth) els.btnCloseMonth.hidden = fechada;
+    if (fechada) showAlert(`Competência ${competencia} está fechada.`, "info");
+    else if (!state.rows.length) showAlert(`Nenhum lançamento em ${competencia}.`, "info");
   } catch (err) {
     state.apiError = err;
     state.rows = [];
+    state.totais = { receitas: 0, despesas: 0, lucro: 0 };
     showAlert(`Erro na API: ${err.message}`, "error");
   }
   renderTable(state.rows);
@@ -338,17 +360,30 @@ function wire() {
   els.btnExport.addEventListener("click", exportCSV);
   els.btnCloseMonth.addEventListener("click", () => {
     const c = els.competencia.value || FisamAPI.monthToday();
-    openConfirm(`Fechar competência ${c}?`, async () => {
+    openConfirm(`Fechar competência ${c}? Lançamentos desse mês ficam bloqueados.`, async () => {
       try {
         await FisamAPI.closeMonth(c);
-        alert("Mês fechado!");
         await refresh();
       } catch (err) { alert(err.message); }
     });
   });
+  if (els.btnReopenMonth) {
+    els.btnReopenMonth.addEventListener("click", () => {
+      const c = els.competencia.value || FisamAPI.monthToday();
+      openConfirm(`Reabrir competência ${c}?`, async () => {
+        try {
+          await FisamAPI.reopenMonth(c);
+          await refresh();
+        } catch (err) { alert(err.message); }
+      });
+    });
+  }
 
-  els.q.addEventListener("input", () => renderTable(state.rows));
-  els.status.addEventListener("change", () => renderTable(state.rows));
+  const rerender = () => { state.page = 1; renderTable(state.rows); };
+  els.q.addEventListener("input", rerender);
+  els.status.addEventListener("change", rerender);
+  if (els.origem) els.origem.addEventListener("change", rerender);
+  if (els.tipoValor) els.tipoValor.addEventListener("change", rerender);
   els.competencia.addEventListener("change", refresh);
 
   els.f_registro_tipo.addEventListener("change", () => setFormMode(els.f_registro_tipo.value));
@@ -365,11 +400,11 @@ function wire() {
   els.formForn.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
-      await FisamAPI.saveFornecedor({ nome: els.f_forn_nome.value.trim() });
+      const saved = await FisamAPI.saveFornecedor({ nome: els.f_forn_nome.value.trim() });
       const opts = await FisamAPI.fetchOptions();
       state.fornecedores = opts.fornecedores;
-      FisamAPI.fillSelect(els.f_fornecedor, state.fornecedores, "Selecione…", true);
-      els.f_fornecedor.value = els.f_forn_nome.value.trim();
+      FisamAPI.fillSelect(els.f_fornecedor, state.fornecedores, "Selecione…", true, "id");
+      els.f_fornecedor.value = saved.fornecedor?.id || "";
       els.modalForn.setAttribute("aria-hidden", "true");
     } catch (err) { alert(err.message); }
   });
@@ -391,33 +426,30 @@ function wire() {
           competencia,
           data: els.f_data.value,
           licitacao_id: lic.id,
-          licitacao_nome: lic.nome,
-          tarifa_codigo: tarOpt?.value || "",
-          tarifa_nome: tarOpt?.dataset.nome || tarOpt?.textContent || "",
-          fornecedor: els.f_fornecedor.value.trim(),
+          tarifa_id: tarOpt?.value || null,
+          fornecedor_id: els.f_fornecedor.value || null,
           descricao: els.f_descricao.value.trim(),
           valor,
           custo,
-          lucro: valor - custo,
           status_os: els.f_status_os.value,
-          pago: "nao",
+          pago: els.f_pago?.checked ? "sim" : "nao",
           comprovante_url: els.f_comprovante.value.trim(),
         });
       } else {
         const row = {
-          competencia, data: els.f_data.value, licitacao: lic.nome,
-          status: els.f_status.value, tipo: modo,
+          competencia, data: els.f_data.value, licitacao_id: lic.id,
+          tipo: modo,
           categoria: els.f_categoria.value.trim(),
-          fornecedor: els.f_fornecedor.value.trim(),
+          fornecedor_id: els.f_fornecedor.value || null,
           descricao: els.f_descricao.value.trim(),
           valor: FisamAPI.parseMoney(els.f_valor.value),
           comprovante_url: els.f_comprovante.value.trim(),
-          origem: "manual",
         };
         if (state.editingId) await FisamAPI.updateLancamento({ ...row, id: state.editingId });
         else await FisamAPI.addLancamento(row);
       }
       closeModal();
+      showAlert("Registro salvo.", "success");
       await refresh();
     } catch (err) { alert(err.message); }
   });

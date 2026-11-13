@@ -1,3 +1,4 @@
+throw new Error("migrate-csv.js não faz parte da subida. O banco começa vazio; o cadastro é manual.");
 // Importa os CSVs em appScript/csv/ (fonte de verdade atual, exportada do Google Sheets)
 // para o Postgres. Rodar uma vez, depois de aplicar migrations/schema.sql.
 //

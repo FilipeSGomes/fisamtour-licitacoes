@@ -1,0 +1,20 @@
+# Postgres só de desenvolvimento. Não aponta para produção nem para Supabase.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fisam
+      POSTGRES_PASSWORD: fisam_dev
+      POSTGRES_DB: fisam_ponto
+    ports:
+      - "54329:5432"
+    volumes:
+      - fisam_ponto_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fisam -d fisam_ponto"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  fisam_ponto_pg:
